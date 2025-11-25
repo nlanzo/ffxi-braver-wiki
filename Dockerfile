@@ -48,26 +48,10 @@ RUN if [ -f composer.json ]; then \
 # Production stage
 FROM php:8.2-fpm-alpine
 
-# Create wait script for PHP-FPM
-RUN echo '#!/bin/sh' > /wait-for-php-fpm.sh \
-    && echo 'set -e' >> /wait-for-php-fpm.sh \
-    && echo 'echo "Waiting for PHP-FPM to be ready..."' >> /wait-for-php-fpm.sh \
-    && echo 'for i in $(seq 1 30); do' >> /wait-for-php-fpm.sh \
-    && echo '  if nc -z 127.0.0.1 9000 2>/dev/null; then' >> /wait-for-php-fpm.sh \
-    && echo '    echo "PHP-FPM is ready!"' >> /wait-for-php-fpm.sh \
-    && echo '    exit 0' >> /wait-for-php-fpm.sh \
-    && echo '  fi' >> /wait-for-php-fpm.sh \
-    && echo '  sleep 0.1' >> /wait-for-php-fpm.sh \
-    && echo 'done' >> /wait-for-php-fpm.sh \
-    && echo 'echo "Warning: PHP-FPM did not become ready in time"' >> /wait-for-php-fpm.sh \
-    && echo 'exit 0' >> /wait-for-php-fpm.sh \
-    && chmod +x /wait-for-php-fpm.sh
-
 # Install runtime dependencies and build dependencies for PHP extensions
 RUN apk add --no-cache \
     nginx \
     supervisor \
-    netcat-openbsd \
     libpng \
     libjpeg-turbo \
     freetype \
@@ -178,6 +162,10 @@ RUN { \
     echo '      fastcgi_index index.php;'; \
     echo '      fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;'; \
     echo '      include fastcgi_params;'; \
+    echo '      fastcgi_connect_timeout 10s;'; \
+    echo '      fastcgi_send_timeout 300s;'; \
+    echo '      fastcgi_read_timeout 300s;'; \
+    echo '      fastcgi_buffering off;'; \
     echo '    }'; \
     echo '    location ~ /\. { deny all; }'; \
     echo '  }'; \
@@ -195,13 +183,13 @@ RUN mkdir -p /etc/supervisor/conf.d \
     echo 'priority=10'; \
     echo 'autorestart=true'; \
     echo 'startretries=3'; \
-    echo 'startsecs=2'; \
+    echo 'startsecs=1'; \
     echo 'stdout_logfile=/dev/stdout'; \
     echo 'stdout_logfile_maxbytes=0'; \
     echo 'stderr_logfile=/dev/stderr'; \
     echo 'stderr_logfile_maxbytes=0'; \
     echo '[program:nginx]'; \
-    echo 'command=/bin/sh -c "/wait-for-php-fpm.sh && nginx -g \\\"daemon off;\\\""'; \
+    echo 'command=nginx -g "daemon off;"'; \
     echo 'priority=20'; \
     echo 'autorestart=true'; \
     echo 'startretries=3'; \
