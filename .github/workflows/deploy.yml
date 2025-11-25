@@ -58,6 +58,10 @@ jobs:
       - name: Deploy to Cloud Run
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         run: |
+          # Verify service account exists and permissions
+          echo "Verifying Cloud Run service account: ${{ secrets.GCP_SERVICE_ACCOUNT }}"
+          gcloud iam service-accounts describe "${{ secrets.GCP_SERVICE_ACCOUNT }}" || echo "Warning: Service account check failed"
+
           gcloud run deploy $SERVICE_NAME \
             --image $IMAGE_NAME:$GITHUB_SHA \
             --platform managed \
