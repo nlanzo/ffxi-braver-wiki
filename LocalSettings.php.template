@@ -83,11 +83,13 @@ $wgStylePath = "$wgResourceBasePath/skins";
 $wgLocalStylePath = "$wgResourceBasePath/skins";
 
 # Load extensions
-# ExternalStorage extension (installed in Docker image)
-wfLoadExtension('ExternalStorage');
+# ExternalStorage extension - install manually after deployment
+# To install: Download from https://www.mediawiki.org/wiki/Extension:ExternalStorage
+# and place in /var/www/html/extensions/ExternalStorage, then uncomment:
+# wfLoadExtension('ExternalStorage');
 
 # Configure ExternalStorage for Google Cloud Storage
-# Note: You'll need to configure ExternalStorage with GCS backend
+# Note: You'll need to configure ExternalStorage with GCS backend after installation
 # See MediaWiki documentation for ExternalStorage GCS configuration
 # The service account has storage.objectAdmin permissions for the bucket
 
