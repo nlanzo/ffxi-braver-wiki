@@ -38,9 +38,13 @@ COPY mediawiki-1.44.2/ /var/www/html/
 
 # Install ExternalStorage extension for Cloud Storage integration
 # Note: ExternalStorage needs to be enabled in LocalSettings.php after installation
+# Download from GitHub releases instead of git clone to avoid authentication issues
 RUN mkdir -p /var/www/html/extensions \
     && cd /var/www/html/extensions \
-    && git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-ExternalStorage.git ExternalStorage \
+    && curl -L https://github.com/wikimedia/mediawiki-extensions-ExternalStorage/archive/refs/heads/master.zip -o ExternalStorage.zip \
+    && unzip -q ExternalStorage.zip \
+    && mv mediawiki-extensions-ExternalStorage-master ExternalStorage \
+    && rm ExternalStorage.zip \
     && chown -R www-data:www-data /var/www/html/extensions/ExternalStorage
 
 # Install PHP dependencies if composer.json exists
