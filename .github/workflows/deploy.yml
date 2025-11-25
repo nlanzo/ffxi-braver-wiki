@@ -16,9 +16,9 @@ env:
   SERVICE_NAME: ffxi-braver-wiki
   REGION: us-central1
   # Use Artifact Registry (recommended) or Container Registry
-  # For Artifact Registry: PROJECT_ID-REGION.pkg.dev/PROJECT_ID/REPO_NAME/IMAGE_NAME
+  # For Artifact Registry: REGION-docker.pkg.dev/PROJECT_ID/REPO_NAME/IMAGE_NAME
   # For Container Registry: gcr.io/PROJECT_ID
-  IMAGE_NAME: ${{ secrets.GCP_PROJECT_ID }}-us-central1.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/ffxi-braver-wiki/ffxi-braver-wiki
+  IMAGE_NAME: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/ffxi-braver-wiki/ffxi-braver-wiki
 
 jobs:
   build-and-deploy:
