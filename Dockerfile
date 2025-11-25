@@ -88,10 +88,16 @@ RUN wget -q https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/
     && chmod +x /usr/local/bin/cloud-sql-proxy
 
 # Install gcsfuse for Cloud Storage mounting (optional, for file uploads)
+# Note: Cloud Run has FUSE limitations, so gcsfuse may not work
+# The entrypoint script handles missing gcsfuse gracefully
+# Consider using Cloud Storage API directly via MediaWiki extensions instead
 RUN apk add --no-cache fuse3 curl \
-    && curl -L https://github.com/GoogleCloudPlatform/gcsfuse/releases/download/v1.2.1/gcsfuse_1.2.1_linux_amd64.tar.gz | tar xz \
-    && mv gcsfuse /usr/local/bin/ \
-    && chmod +x /usr/local/bin/gcsfuse
+    && GCSFUSE_VERSION=1.2.0 \
+    && curl -fSL "https://github.com/GoogleCloudPlatform/gcsfuse/releases/download/v${GCSFUSE_VERSION}/gcsfuse_${GCSFUSE_VERSION}_linux_amd64.tar.gz" -o /tmp/gcsfuse.tar.gz \
+    && tar -xzf /tmp/gcsfuse.tar.gz -C /tmp \
+    && mv /tmp/gcsfuse /usr/local/bin/ \
+    && chmod +x /usr/local/bin/gcsfuse \
+    && rm -f /tmp/gcsfuse.tar.gz || echo "gcsfuse installation failed - will use local storage"
 
 # Configure PHP for Cloud Run
 RUN { \
