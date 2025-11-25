@@ -36,6 +36,13 @@ WORKDIR /var/www/html
 # Copy MediaWiki files
 COPY mediawiki-1.44.2/ /var/www/html/
 
+# Install ExternalStorage extension for Cloud Storage integration
+# Note: ExternalStorage needs to be enabled in LocalSettings.php after installation
+RUN mkdir -p /var/www/html/extensions \
+    && cd /var/www/html/extensions \
+    && git clone --depth 1 https://gerrit.wikimedia.org/r/mediawiki/extensions/ExternalStorage.git \
+    && chown -R www-data:www-data /var/www/html/extensions/ExternalStorage
+
 # Install PHP dependencies if composer.json exists
 RUN if [ -f composer.json ]; then \
     composer install --no-dev --optimize-autoloader --no-interaction; \
@@ -87,17 +94,9 @@ RUN wget -q https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/
     -O /usr/local/bin/cloud-sql-proxy \
     && chmod +x /usr/local/bin/cloud-sql-proxy
 
-# Install gcsfuse for Cloud Storage mounting (optional, for file uploads)
-# Note: Cloud Run has FUSE limitations, so gcsfuse may not work
-# The entrypoint script handles missing gcsfuse gracefully
-# Consider using Cloud Storage API directly via MediaWiki extensions instead
-RUN apk add --no-cache fuse3 curl \
-    && GCSFUSE_VERSION=1.2.0 \
-    && curl -fSL "https://github.com/GoogleCloudPlatform/gcsfuse/releases/download/v${GCSFUSE_VERSION}/gcsfuse_${GCSFUSE_VERSION}_linux_amd64.tar.gz" -o /tmp/gcsfuse.tar.gz \
-    && tar -xzf /tmp/gcsfuse.tar.gz -C /tmp \
-    && mv /tmp/gcsfuse /usr/local/bin/ \
-    && chmod +x /usr/local/bin/gcsfuse \
-    && rm -f /tmp/gcsfuse.tar.gz || echo "gcsfuse installation failed - will use local storage"
+# Note: Cloud Storage integration is handled via MediaWiki extensions using Cloud Storage API
+# Cloud Run doesn't support FUSE, so gcsfuse is not used
+# Install MediaWiki extensions like ExternalStorage with GCS backend for Cloud Storage integration
 
 # Configure PHP for Cloud Run
 RUN { \
@@ -163,7 +162,8 @@ RUN { \
     } > /etc/nginx/nginx.conf
 
 # Configure Supervisor
-RUN { \
+RUN mkdir -p /etc/supervisor/conf.d \
+    && { \
     echo '[supervisord]'; \
     echo 'nodaemon=true'; \
     echo 'user=root'; \

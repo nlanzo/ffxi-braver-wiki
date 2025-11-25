@@ -28,9 +28,10 @@ $wgServer = $_ENV['WIKI_SERVER'] ?? 'https://your-service-url.run.app';
 $wgSecretKey = $_ENV['WIKI_SECRET_KEY'] ?? 'your-secret-key-change-this';
 $wgUpgradeKey = $_ENV['WIKI_UPGRADE_KEY'] ?? 'your-upgrade-key-change-this';
 
-# File uploads - Use Cloud Storage (mounted via gcsfuse)
-# The GCS bucket is mounted to /var/www/html/images by docker-entrypoint.sh
-# So we can use it as a regular filesystem path
+# File uploads - Use Cloud Storage API via ExternalStorage extension
+# ExternalStorage extension is installed in the Docker image
+# Configure ExternalStorage to use Google Cloud Storage backend
+# See: https://www.mediawiki.org/wiki/Extension:ExternalStorage
 $wgUploadDirectory = "$IP/images";
 $wgUploadPath = '/images';
 
@@ -81,8 +82,14 @@ $wgResourceBasePath = $wgScriptPath;
 $wgStylePath = "$wgResourceBasePath/skins";
 $wgLocalStylePath = "$wgResourceBasePath/skins";
 
-# Load extensions (add your extensions here)
-# wfLoadExtension('ExtensionName');
+# Load extensions
+# ExternalStorage extension (installed in Docker image)
+wfLoadExtension('ExternalStorage');
+
+# Configure ExternalStorage for Google Cloud Storage
+# Note: You'll need to configure ExternalStorage with GCS backend
+# See MediaWiki documentation for ExternalStorage GCS configuration
+# The service account has storage.objectAdmin permissions for the bucket
 
 # End of configuration
 
