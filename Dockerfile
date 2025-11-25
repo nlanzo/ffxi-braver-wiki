@@ -48,10 +48,26 @@ RUN if [ -f composer.json ]; then \
 # Production stage
 FROM php:8.2-fpm-alpine
 
+# Create wait script for PHP-FPM
+RUN echo '#!/bin/sh' > /wait-for-php-fpm.sh \
+    && echo 'set -e' >> /wait-for-php-fpm.sh \
+    && echo 'echo "Waiting for PHP-FPM to be ready..."' >> /wait-for-php-fpm.sh \
+    && echo 'for i in $(seq 1 30); do' >> /wait-for-php-fpm.sh \
+    && echo '  if nc -z 127.0.0.1 9000 2>/dev/null; then' >> /wait-for-php-fpm.sh \
+    && echo '    echo "PHP-FPM is ready!"' >> /wait-for-php-fpm.sh \
+    && echo '    exit 0' >> /wait-for-php-fpm.sh \
+    && echo '  fi' >> /wait-for-php-fpm.sh \
+    && echo '  sleep 0.1' >> /wait-for-php-fpm.sh \
+    && echo 'done' >> /wait-for-php-fpm.sh \
+    && echo 'echo "Warning: PHP-FPM did not become ready in time"' >> /wait-for-php-fpm.sh \
+    && echo 'exit 0' >> /wait-for-php-fpm.sh \
+    && chmod +x /wait-for-php-fpm.sh
+
 # Install runtime dependencies and build dependencies for PHP extensions
 RUN apk add --no-cache \
     nginx \
     supervisor \
+    netcat-openbsd \
     libpng \
     libjpeg-turbo \
     freetype \
@@ -185,7 +201,7 @@ RUN mkdir -p /etc/supervisor/conf.d \
     echo 'stderr_logfile=/dev/stderr'; \
     echo 'stderr_logfile_maxbytes=0'; \
     echo '[program:nginx]'; \
-    echo 'command=/bin/sh -c "sleep 3 && nginx -g \\\"daemon off;\\\""'; \
+    echo 'command=/bin/sh -c "/wait-for-php-fpm.sh && nginx -g \\\"daemon off;\\\""'; \
     echo 'priority=20'; \
     echo 'autorestart=true'; \
     echo 'startretries=3'; \
