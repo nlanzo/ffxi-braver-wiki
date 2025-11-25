@@ -1,0 +1,79 @@
+name: Build and Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  SERVICE_NAME: ffxi-braver-wiki
+  REGION: us-central1
+  # Use Artifact Registry (recommended) or Container Registry
+  # For Artifact Registry: PROJECT_ID-REGION.pkg.dev/PROJECT_ID/REPO_NAME/IMAGE_NAME
+  # For Container Registry: gcr.io/PROJECT_ID
+  IMAGE_NAME: ${{ secrets.GCP_PROJECT_ID }}-us-central1.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/ffxi-braver-wiki/ffxi-braver-wiki
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for GCR/Artifact Registry
+        run: |
+          gcloud auth configure-docker us-central1-docker.pkg.dev --quiet || \
+          gcloud auth configure-docker gcr.io --quiet
+
+      - name: Build Docker image
+        run: |
+          docker build -t $IMAGE_NAME:$GITHUB_SHA -t $IMAGE_NAME:latest .
+
+      - name: Push Docker image to Artifact Registry
+        run: |
+          docker push $IMAGE_NAME:$GITHUB_SHA
+          docker push $IMAGE_NAME:latest
+
+      - name: Deploy to Cloud Run
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        run: |
+          gcloud run deploy $SERVICE_NAME \
+            --image $IMAGE_NAME:$GITHUB_SHA \
+            --platform managed \
+            --region $REGION \
+            --allow-unauthenticated \
+            --port 8080 \
+            --memory 2Gi \
+            --cpu 2 \
+            --timeout 300 \
+            --max-instances 10 \
+            --set-env-vars="DB_TYPE=mysql,DB_NAME=${{ secrets.DB_NAME }},DB_USER=${{ secrets.DB_USER }},DB_PASSWORD=${{ secrets.DB_PASSWORD }},CLOUD_SQL_CONNECTION_NAME=${{ secrets.CLOUD_SQL_CONNECTION_NAME }},GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }},WIKI_SITENAME=${{ secrets.WIKI_SITENAME }},WIKI_SERVER=${{ secrets.WIKI_SERVER }},WIKI_SECRET_KEY=${{ secrets.WIKI_SECRET_KEY }},WIKI_UPGRADE_KEY=${{ secrets.WIKI_UPGRADE_KEY }}" \
+            --add-cloudsql-instances=${{ secrets.CLOUD_SQL_CONNECTION_NAME }} \
+            --service-account=${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Output Service URL
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        run: |
+          SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region $REGION --format 'value(status.url)')
+          echo "Service deployed at: $SERVICE_URL"

@@ -1,0 +1,77 @@
+.db-passwords.txt
+github-actions-key.json
+*.key
+*.pem
+*.p12
+
+# GCP Service Account Keys
+*-key.json
+*-sa-key.json
+service-account*.json
+
+# MediaWiki configuration files (may contain sensitive data)
+LocalSettings.php
+
+# MediaWiki cache and temporary files
+mediawiki-1.44.2/cache/*
+mediawiki-1.44.2/images/*
+!mediawiki-1.44.2/images/.gitkeep
+
+# Docker
+.dockerignore
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Docker build artifacts
+*.tar
+*.tar.gz
+.docker/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# PHP/Composer (only ignore at root level, MediaWiki's files are part of the distro)
+composer.lock
+!/mediawiki-*/composer.lock
+
+# Python (if any scripts are added)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+DEPLOYMENT.md
+QUICK_START.md
+SETUP_SUMMARY.md

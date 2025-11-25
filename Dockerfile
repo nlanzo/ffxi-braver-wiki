@@ -1,0 +1,186 @@
+# Multi-stage build for MediaWiki on Cloud Run
+FROM php:8.2-fpm-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache \
+    git \
+    unzip \
+    curl \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    libzip-dev \
+    icu-dev \
+    oniguruma-dev \
+    postgresql-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+    gd \
+    mysqli \
+    pdo \
+    pdo_mysql \
+    pdo_pgsql \
+    zip \
+    intl \
+    mbstring \
+    opcache \
+    bcmath
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Set working directory
+WORKDIR /var/www/html
+
+# Copy MediaWiki files
+COPY mediawiki-1.44.2/ /var/www/html/
+
+# Install PHP dependencies if composer.json exists
+RUN if [ -f composer.json ]; then \
+    composer install --no-dev --optimize-autoloader --no-interaction; \
+    fi
+
+# Production stage
+FROM php:8.2-fpm-alpine
+
+# Install runtime dependencies and PHP extensions
+RUN apk add --no-cache \
+    nginx \
+    supervisor \
+    libpng \
+    libjpeg-turbo \
+    freetype \
+    libzip \
+    icu \
+    oniguruma \
+    postgresql-libs \
+    mysql-client \
+    netcat-openbsd \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+    gd \
+    mysqli \
+    pdo \
+    pdo_mysql \
+    pdo_pgsql \
+    zip \
+    intl \
+    mbstring \
+    opcache \
+    bcmath \
+    && rm -rf /var/cache/apk/*
+
+# Install Cloud SQL Proxy for Cloud SQL connections
+RUN wget -q https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.8.0/cloud-sql-proxy.linux.amd64 \
+    -O /usr/local/bin/cloud-sql-proxy \
+    && chmod +x /usr/local/bin/cloud-sql-proxy
+
+# Install gcsfuse for Cloud Storage mounting (optional, for file uploads)
+RUN apk add --no-cache fuse3 curl \
+    && curl -L https://github.com/GoogleCloudPlatform/gcsfuse/releases/download/v1.2.1/gcsfuse_1.2.1_linux_amd64.tar.gz | tar xz \
+    && mv gcsfuse /usr/local/bin/ \
+    && chmod +x /usr/local/bin/gcsfuse
+
+# Configure PHP for Cloud Run
+RUN { \
+    echo 'memory_limit = 256M'; \
+    echo 'upload_max_filesize = 20M'; \
+    echo 'post_max_size = 20M'; \
+    echo 'max_execution_time = 300'; \
+    echo 'max_input_time = 300'; \
+    echo 'date.timezone = UTC'; \
+    } > /usr/local/etc/php/conf.d/mediawiki.ini
+
+# Configure PHP-FPM for Cloud Run
+RUN { \
+    echo '[global]'; \
+    echo 'daemonize = no'; \
+    echo 'error_log = /proc/self/fd/2'; \
+    echo '[www]'; \
+    echo 'listen = 127.0.0.1:9000'; \
+    echo 'listen.owner = www-data'; \
+    echo 'listen.group = www-data'; \
+    echo 'user = www-data'; \
+    echo 'group = www-data'; \
+    echo 'pm = dynamic'; \
+    echo 'pm.max_children = 10'; \
+    echo 'pm.start_servers = 2'; \
+    echo 'pm.min_spare_servers = 1'; \
+    echo 'pm.max_spare_servers = 3'; \
+    echo 'catch_workers_output = yes'; \
+    } > /usr/local/etc/php-fpm.d/mediawiki.conf
+
+# Configure Nginx
+RUN { \
+    echo 'user www-data;'; \
+    echo 'worker_processes auto;'; \
+    echo 'error_log /proc/self/fd/2 warn;'; \
+    echo 'pid /var/run/nginx.pid;'; \
+    echo 'events { worker_connections 1024; }'; \
+    echo 'http {'; \
+    echo '  include /etc/nginx/mime.types;'; \
+    echo '  default_type application/octet-stream;'; \
+    echo '  log_format main '"'"'$remote_addr - $remote_user [$time_local] "$request" '"'"' '"'"'$status $body_bytes_sent "$http_referer" '"'"' '"'"'"$http_user_agent" "$http_x_forwarded_for"'"'"';'; \
+    echo '  access_log /proc/self/fd/1 main;'; \
+    echo '  sendfile on;'; \
+    echo '  keepalive_timeout 65;'; \
+    echo '  client_max_body_size 20M;'; \
+    echo '  server {'; \
+    echo '    listen 8080;'; \
+    echo '    server_name _;'; \
+    echo '    root /var/www/html;'; \
+    echo '    index index.php;'; \
+    echo '    location / {'; \
+    echo '      try_files $uri $uri/ /index.php?$query_string;'; \
+    echo '    }'; \
+    echo '    location ~ \.php$ {'; \
+    echo '      fastcgi_pass 127.0.0.1:9000;'; \
+    echo '      fastcgi_index index.php;'; \
+    echo '      fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;'; \
+    echo '      include fastcgi_params;'; \
+    echo '    }'; \
+    echo '    location ~ /\. { deny all; }'; \
+    echo '  }'; \
+    echo '}'; \
+    } > /etc/nginx/nginx.conf
+
+# Configure Supervisor
+RUN { \
+    echo '[supervisord]'; \
+    echo 'nodaemon=true'; \
+    echo 'user=root'; \
+    echo '[program:nginx]'; \
+    echo 'command=nginx -g "daemon off;"'; \
+    echo 'autorestart=true'; \
+    echo 'stdout_logfile=/dev/stdout'; \
+    echo 'stdout_logfile_maxbytes=0'; \
+    echo 'stderr_logfile=/dev/stderr'; \
+    echo 'stderr_logfile_maxbytes=0'; \
+    echo '[program:php-fpm]'; \
+    echo 'command=php-fpm'; \
+    echo 'autorestart=true'; \
+    echo 'stdout_logfile=/dev/stdout'; \
+    echo 'stdout_logfile_maxbytes=0'; \
+    echo 'stderr_logfile=/dev/stderr'; \
+    echo 'stderr_logfile_maxbytes=0'; \
+    } > /etc/supervisor/conf.d/supervisord.conf
+
+# Copy application files from builder
+COPY --from=builder --chown=www-data:www-data /var/www/html /var/www/html
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /var/www/html/images \
+    && chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Expose port 8080 (Cloud Run requirement)
+EXPOSE 8080
+
+# Use supervisor to manage nginx and php-fpm
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+
