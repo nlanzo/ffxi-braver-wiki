@@ -15,6 +15,7 @@ RUN apk add --no-cache \
     postgresql-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
+    calendar \
     gd \
     mysqli \
     pdo \
@@ -67,6 +68,7 @@ RUN apk add --no-cache \
     postgresql-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
+    calendar \
     gd \
     mysqli \
     pdo \
