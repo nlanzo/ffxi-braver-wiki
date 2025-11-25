@@ -35,6 +35,10 @@ $wgUpgradeKey = $_ENV['WIKI_UPGRADE_KEY'] ?? 'your-upgrade-key-change-this';
 $wgUploadDirectory = "$IP/images";
 $wgUploadPath = '/images';
 
+# Security: Nginx is configured to prevent PHP execution in /images/ directory
+# and to add X-Content-Type-Options: nosniff header
+# This addresses the MediaWiki installer security warnings
+
 # Temporary directory (use in-memory tmpfs for Cloud Run)
 $wgTmpDirectory = sys_get_temp_dir();
 

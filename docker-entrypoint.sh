@@ -18,9 +18,15 @@ if [ -n "$CLOUD_SQL_CONNECTION_NAME" ]; then
     fi
 fi
 
-# Set proper permissions
+# Set proper permissions for MediaWiki
+# Images directory needs to be writable for uploads
 chown -R www-data:www-data /var/www/html/images || true
-chmod -R 755 /var/www/html/images || true
+chmod -R 775 /var/www/html/images || true
+
+# Ensure cache directory exists and is writable
+mkdir -p /var/www/html/cache || true
+chown -R www-data:www-data /var/www/html/cache || true
+chmod -R 775 /var/www/html/cache || true
 
 # Ensure LocalSettings.php exists (will be created by installer if not present)
 if [ ! -f /var/www/html/LocalSettings.php ]; then

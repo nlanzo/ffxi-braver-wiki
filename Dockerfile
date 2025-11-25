@@ -144,6 +144,12 @@ RUN { \
     echo '    server_name _;'; \
     echo '    root /var/www/html;'; \
     echo '    index index.php;'; \
+    echo '    # Security: Prevent PHP execution in uploads directory'; \
+    echo '    location ~ ^/images/.*\.php$ { deny all; }'; \
+    echo '    # Security headers for uploads directory'; \
+    echo '    location /images/ {'; \
+    echo '      add_header X-Content-Type-Options "nosniff" always;'; \
+    echo '    }'; \
     echo '    location / {'; \
     echo '      try_files $uri $uri/ /index.php?$query_string;'; \
     echo '    }'; \
