@@ -106,7 +106,9 @@ RUN { \
     } > /usr/local/etc/php/conf.d/mediawiki.ini
 
 # Configure PHP-FPM for Cloud Run
-RUN { \
+# Remove default www.conf to avoid conflicts
+RUN rm -f /usr/local/etc/php-fpm.d/www.conf.default /usr/local/etc/php-fpm.d/zz-docker.conf 2>/dev/null || true \
+    && { \
     echo '[global]'; \
     echo 'daemonize = no'; \
     echo 'error_log = /proc/self/fd/2'; \
@@ -122,6 +124,8 @@ RUN { \
     echo 'pm.min_spare_servers = 1'; \
     echo 'pm.max_spare_servers = 3'; \
     echo 'catch_workers_output = yes'; \
+    echo 'php_admin_value[error_log] = /proc/self/fd/2'; \
+    echo 'php_admin_flag[log_errors] = on'; \
     } > /usr/local/etc/php-fpm.d/mediawiki.conf
 
 # Configure Nginx
@@ -170,16 +174,22 @@ RUN mkdir -p /etc/supervisor/conf.d \
     echo '[supervisord]'; \
     echo 'nodaemon=true'; \
     echo 'user=root'; \
-    echo '[program:nginx]'; \
-    echo 'command=nginx -g "daemon off;"'; \
+    echo '[program:php-fpm]'; \
+    echo 'command=php-fpm'; \
+    echo 'priority=10'; \
     echo 'autorestart=true'; \
+    echo 'startretries=3'; \
+    echo 'startsecs=2'; \
     echo 'stdout_logfile=/dev/stdout'; \
     echo 'stdout_logfile_maxbytes=0'; \
     echo 'stderr_logfile=/dev/stderr'; \
     echo 'stderr_logfile_maxbytes=0'; \
-    echo '[program:php-fpm]'; \
-    echo 'command=php-fpm'; \
+    echo '[program:nginx]'; \
+    echo 'command=/bin/sh -c "sleep 3 && nginx -g \\\"daemon off;\\\""'; \
+    echo 'priority=20'; \
     echo 'autorestart=true'; \
+    echo 'startretries=3'; \
+    echo 'startsecs=1'; \
     echo 'stdout_logfile=/dev/stdout'; \
     echo 'stdout_logfile_maxbytes=0'; \
     echo 'stderr_logfile=/dev/stderr'; \
