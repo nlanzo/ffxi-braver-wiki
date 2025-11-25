@@ -43,7 +43,7 @@ RUN if [ -f composer.json ]; then \
 # Production stage
 FROM php:8.2-fpm-alpine
 
-# Install runtime dependencies and PHP extensions
+# Install runtime dependencies and build dependencies for PHP extensions
 RUN apk add --no-cache \
     nginx \
     supervisor \
@@ -56,6 +56,15 @@ RUN apk add --no-cache \
     postgresql-libs \
     mysql-client \
     netcat-openbsd \
+    && apk add --no-cache --virtual .build-deps \
+    zlib-dev \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    libzip-dev \
+    icu-dev \
+    oniguruma-dev \
+    postgresql-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
     gd \
@@ -68,6 +77,7 @@ RUN apk add --no-cache \
     mbstring \
     opcache \
     bcmath \
+    && apk del .build-deps \
     && rm -rf /var/cache/apk/*
 
 # Install Cloud SQL Proxy for Cloud SQL connections
