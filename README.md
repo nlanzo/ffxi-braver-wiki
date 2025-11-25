@@ -2,12 +2,6 @@
 
 This repository contains a MediaWiki installation configured to run on Google Cloud Run with Cloud SQL and Cloud Storage.
 
-## Quick Start
-
-1. **Set up GCP resources** - Follow [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions
-2. **Configure GitHub Secrets** - Add all required secrets to your GitHub repository
-3. **Deploy** - Push to `main` branch to trigger automatic deployment
-
 ## Architecture
 
 - **Compute**: Google Cloud Run (serverless containers)
@@ -29,10 +23,6 @@ This repository contains a MediaWiki installation configured to run on Google Cl
 - Google Cloud Platform account
 - GitHub repository
 - MediaWiki 1.44.2 source files
-
-## Deployment
-
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for complete deployment instructions.
 
 ## Local Development
 
