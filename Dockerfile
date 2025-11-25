@@ -40,7 +40,7 @@ COPY mediawiki-1.44.2/ /var/www/html/
 # Note: ExternalStorage needs to be enabled in LocalSettings.php after installation
 RUN mkdir -p /var/www/html/extensions \
     && cd /var/www/html/extensions \
-    && git clone --depth 1 https://gerrit.wikimedia.org/r/mediawiki/extensions/ExternalStorage.git \
+    && git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-ExternalStorage.git ExternalStorage \
     && chown -R www-data:www-data /var/www/html/extensions/ExternalStorage
 
 # Install PHP dependencies if composer.json exists
