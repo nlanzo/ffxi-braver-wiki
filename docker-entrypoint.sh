@@ -28,9 +28,13 @@ mkdir -p /var/www/html/cache || true
 chown -R www-data:www-data /var/www/html/cache || true
 chmod -R 775 /var/www/html/cache || true
 
-# Ensure LocalSettings.php exists (will be created by installer if not present)
+# Copy LocalSettings.php template if it doesn't exist locally
+# The template reads all sensitive values from environment variables (GitHub Secrets)
 if [ ! -f /var/www/html/LocalSettings.php ]; then
-    echo "LocalSettings.php not found. MediaWiki installer will create it on first run."
+    echo "LocalSettings.php not found. Using secure template (reads from environment variables)."
+    cp /var/www/html/LocalSettings.php.template /var/www/html/LocalSettings.php
+    chown www-data:www-data /var/www/html/LocalSettings.php
+    chmod 644 /var/www/html/LocalSettings.php
 fi
 
 # Execute the main command

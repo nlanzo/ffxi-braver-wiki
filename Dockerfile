@@ -214,8 +214,9 @@ RUN mkdir -p /var/www/html/images \
     && chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html
 
-# Copy entrypoint script
+# Copy entrypoint script and LocalSettings template
 COPY docker-entrypoint.sh /usr/local/bin/
+COPY LocalSettings.php.template /var/www/html/LocalSettings.php.template
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Expose port 8080 (Cloud Run requirement)

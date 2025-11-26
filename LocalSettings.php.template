@@ -90,6 +90,18 @@ $wgResourceBasePath = $wgScriptPath;
 $wgStylePath = "$wgResourceBasePath/skins";
 $wgLocalStylePath = "$wgResourceBasePath/skins";
 
+# Default skin
+$wgDefaultSkin = 'vector';
+
+# Enabled skins (add more as needed)
+wfLoadSkin( 'MinervaNeue' );
+wfLoadSkin( 'MonoBook' );
+wfLoadSkin( 'Timeless' );
+wfLoadSkin( 'Vector' );
+
+# Permissions - restrict edits to logged-in users only
+$wgGroupPermissions["*"]["edit"] = false;
+
 # Load extensions
 # ExternalStorage extension - install manually after deployment
 # To install: Download from https://www.mediawiki.org/wiki/Extension:ExternalStorage
