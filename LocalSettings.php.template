@@ -18,6 +18,10 @@ $wgDBpassword = $_ENV['DB_PASSWORD'] ?? '';
 # Database type (mysql or postgres)
 $wgDBtype = $_ENV['DB_TYPE'] ?? 'mysql';
 
+# Force InnoDB engine (Cloud SQL doesn't support MyISAM)
+# This must be set before installation/upgrade
+$wgDBTableOptions = 'ENGINE=InnoDB, DEFAULT CHARSET=utf8mb4';
+
 # Wiki name
 $wgSitename = $_ENV['WIKI_SITENAME'] ?? 'My Wiki';
 

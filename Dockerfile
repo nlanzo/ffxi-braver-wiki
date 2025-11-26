@@ -36,6 +36,12 @@ WORKDIR /var/www/html
 # Copy MediaWiki files
 COPY mediawiki-1.44.2/ /var/www/html/
 
+# Patch SQL files to use InnoDB instead of MyISAM (Cloud SQL doesn't support MyISAM)
+# MySQL 5.6+ supports FULLTEXT indexes on InnoDB tables
+RUN sed -i 's/ENGINE = MyISAM/ENGINE = InnoDB/g' /var/www/html/sql/mysql/tables-generated.sql \
+    && sed -i 's/ENGINE=MyISAM/ENGINE=InnoDB/g' /var/www/html/sql/mysql/tables-generated.sql \
+    && sed -i 's/ENGINE=MyISAM/ENGINE=InnoDB/g' /var/www/html/sql/mysql/patch-searchindex.sql || true
+
 # Note: ExternalStorage extension should be installed manually after deployment
 # Cloud Storage integration can be configured via MediaWiki extensions
 # See documentation for installing ExternalStorage or other GCS-compatible extensions
