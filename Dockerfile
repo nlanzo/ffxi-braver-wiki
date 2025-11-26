@@ -178,6 +178,30 @@ RUN { \
     echo '}'; \
     } > /etc/nginx/nginx.conf
 
+# Create script to wait for PHP-FPM to be ready before starting nginx
+RUN { \
+    echo '#!/bin/sh'; \
+    echo 'set -e'; \
+    echo 'echo "Waiting for PHP-FPM to be ready...";'; \
+    echo 'MAX_ATTEMPTS=30'; \
+    echo 'ATTEMPT=0'; \
+    echo 'while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do'; \
+    echo '  if nc -z 127.0.0.1 9000 2>/dev/null; then'; \
+    echo '    echo "PHP-FPM is ready!"'; \
+    echo '    break'; \
+    echo '  fi'; \
+    echo '  ATTEMPT=$((ATTEMPT + 1))'; \
+    echo '  echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: PHP-FPM not ready yet, waiting...";'; \
+    echo '  sleep 1'; \
+    echo 'done'; \
+    echo 'if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then'; \
+    echo '  echo "ERROR: PHP-FPM failed to start after $MAX_ATTEMPTS attempts"'; \
+    echo '  exit 1'; \
+    echo 'fi'; \
+    echo 'exec nginx -g "daemon off;"'; \
+    } > /usr/local/bin/start-nginx.sh \
+    && chmod +x /usr/local/bin/start-nginx.sh
+
 # Configure Supervisor
 RUN mkdir -p /etc/supervisor/conf.d \
     && { \
@@ -189,13 +213,13 @@ RUN mkdir -p /etc/supervisor/conf.d \
     echo 'priority=10'; \
     echo 'autorestart=true'; \
     echo 'startretries=3'; \
-    echo 'startsecs=1'; \
+    echo 'startsecs=2'; \
     echo 'stdout_logfile=/dev/stdout'; \
     echo 'stdout_logfile_maxbytes=0'; \
     echo 'stderr_logfile=/dev/stderr'; \
     echo 'stderr_logfile_maxbytes=0'; \
     echo '[program:nginx]'; \
-    echo 'command=nginx -g "daemon off;"'; \
+    echo 'command=/usr/local/bin/start-nginx.sh'; \
     echo 'priority=20'; \
     echo 'autorestart=true'; \
     echo 'startretries=3'; \
