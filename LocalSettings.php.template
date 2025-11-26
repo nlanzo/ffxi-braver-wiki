@@ -16,9 +16,9 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 
 # Database settings
 # For Cloud SQL, use Unix socket connection
-# Format: /cloudsql/PROJECT_ID:REGION:INSTANCE_NAME
+# Format: localhost:/cloudsql/PROJECT_ID:REGION:INSTANCE_NAME
 if (isset($_ENV['CLOUD_SQL_CONNECTION_NAME'])) {
-    $wgDBserver = '/cloudsql/' . $_ENV['CLOUD_SQL_CONNECTION_NAME'];
+    $wgDBserver = 'localhost:/cloudsql/' . $_ENV['CLOUD_SQL_CONNECTION_NAME'];
 } else {
     $wgDBserver = $_ENV['DB_HOST'] ?? 'localhost';
 }
@@ -99,8 +99,10 @@ if (isset($_ENV['SMTP_HOST'])) {
 
 # Logging
 $wgDebugLogFile = '/dev/stderr';
-$wgShowExceptionDetails = false;
-$wgShowSQLErrors = false;
+# Temporarily enable error display for debugging (disable in production)
+$wgShowExceptionDetails = true;
+$wgShowSQLErrors = true;
+$wgShowDBErrorBacktrace = true;
 
 # Additional settings
 $wgResourceBasePath = $wgScriptPath;
