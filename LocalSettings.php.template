@@ -38,6 +38,20 @@ $wgDBTableOptions = 'ENGINE=InnoDB, DEFAULT CHARSET=utf8mb4';
 $wgSitename = $_ENV['WIKI_SITENAME'] ?? 'My Wiki';
 $wgMetaNamespace = str_replace(' ', '_', $wgSitename);
 
+# Site Logo
+# You can set this via environment variable WIKI_LOGO_URL
+# Example: https://storage.googleapis.com/your-bucket/logo.png
+if (isset($_ENV['WIKI_LOGO_URL']) && $_ENV['WIKI_LOGO_URL'] !== '') {
+    $wgLogos = [
+        '1x' => $_ENV['WIKI_LOGO_URL'],
+    ];
+} else {
+    # Default MediaWiki logo
+    $wgLogos = [
+        '1x' => "$wgResourceBasePath/resources/assets/wiki.png",
+    ];
+}
+
 ## The URL base path to the directory containing the wiki;
 ## defaults for all runtime URL paths are based off of this.
 $wgScriptPath = "";
