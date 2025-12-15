@@ -149,5 +149,7 @@ $wgGroupPermissions["*"]["edit"] = false;
 # See MediaWiki documentation for ExternalStorage GCS configuration
 # The service account has storage.objectAdmin permissions for the bucket
 
+wfLoadExtension( 'VisualEditor' );
+
 # End of configuration
 
