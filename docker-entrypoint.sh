@@ -28,6 +28,14 @@ mkdir -p /var/www/html/cache || true
 chown -R www-data:www-data /var/www/html/cache || true
 chmod -R 775 /var/www/html/cache || true
 
+# Create Nginx temporary directories in /tmp (required for Cloud Run)
+# These paths must match what is configured in nginx.conf in Dockerfile
+for dir in client_body proxy fastcgi uwsgi scgi; do
+    mkdir -p "/tmp/nginx_$dir"
+    chown -R www-data:www-data "/tmp/nginx_$dir"
+    chmod 700 "/tmp/nginx_$dir"
+done
+
 # Copy LocalSettings.php template if it doesn't exist locally
 # The template reads all sensitive values from environment variables (GitHub Secrets)
 if [ ! -f /var/www/html/LocalSettings.php ]; then
