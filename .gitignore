@@ -72,6 +72,7 @@ dist/
 build/
 *.egg-info/
 
+# extra setup and data files
 DEPLOYMENT.md
 QUICK_START.md
 SETUP_SUMMARY.md
@@ -80,3 +81,6 @@ EMAIL_SETUP_QUICKSTART.md
 GITHUB_SECRETS_SETUP.md
 SMTP_SETUP.md
 GOOGLE_CLOUD_DNS_SETUP.md
+FFXI Braver Info - NMs.csv
+nm_table_generated.txt
+csv_to_wiki_table.py
