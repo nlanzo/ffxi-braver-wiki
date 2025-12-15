@@ -52,7 +52,7 @@ class UserDataAuthenticationRequest extends AuthenticationRequest {
 				'type' => 'string',
 				'label' => wfMessage( 'authmanager-email-label' ),
 				'help' => wfMessage( 'authmanager-email-help' ),
-				'optional' => true,
+				'optional' => false,
 			],
 			'realname' => [
 				'type' => 'string',
@@ -82,7 +82,11 @@ class UserDataAuthenticationRequest extends AuthenticationRequest {
 	 * @return StatusValue
 	 */
 	public function populateUser( $user ) {
-		if ( $this->email !== null && $this->email !== '' ) {
+		$config = MediaWikiServices::getInstance()->getMainConfig();
+		if ( $config->get( MainConfigNames::EnableEmail ) ) {
+			if ( $this->email === null || $this->email === '' ) {
+				return StatusValue::newFatal( 'noemailtitle' );
+			}
 			if ( !Sanitizer::validateEmail( $this->email ) ) {
 				return StatusValue::newFatal( 'invalidemailaddress' );
 			}

@@ -920,23 +920,19 @@ abstract class LoginSignupSpecialPage extends AuthManagerSpecialPage {
 				] + $hideIf,
 				'email' => [
 					'type' => 'email',
-					'label-message' => $config->get( MainConfigNames::EmailConfirmToEdit )
-						? 'createacct-emailrequired' : 'createacct-emailoptional',
+					'label-message' => 'createacct-emailrequired',
 					'id' => 'wpEmail',
 					'cssclass' => 'loginText',
 					'size' => '20',
 					'maxlength' => 255,
 					'autocomplete' => 'email',
 					// FIXME will break non-standard providers
-					'required' => $config->get( MainConfigNames::EmailConfirmToEdit ),
+					'required' => true,
 					'validation-callback' => function ( $value, $alldata ) {
 						// AuthManager will check most of these, but that will make the auth
 						// session fail and this won't, so nicer to do it this way
-						if ( !$value &&
-							$this->getConfig()->get( MainConfigNames::EmailConfirmToEdit )
-						) {
-							// no point in allowing registration without email when email is
-							// required to edit
+						if ( !$value ) {
+							// email is now required for all registrations
 							return $this->msg( 'noemailtitle' );
 						} elseif ( !$value && !empty( $alldata['mailpassword'] ) ) {
 							// cannot send password via email when there is no email address

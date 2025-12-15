@@ -86,7 +86,23 @@ $wgEnableAPI = true;
 $wgEnableWriteAPI = true;
 $wgCrossSiteAJAXdomains = ['*'];
 
-# Email settings (configure SMTP if needed)
+# Email settings - REQUIRED for email confirmation
+$wgEnableEmail = true;
+$wgEnableUserEmail = true; # UPO
+
+# Email sender configuration - REQUIRED for sending emails
+# Set these to valid email addresses for your domain
+# These can be set via environment variables or defaults will be used
+$wgEmergencyContact = $_ENV['WIKI_EMERGENCY_CONTACT'] ?? 'wikiadmin@' . parse_url($_ENV['WIKI_SERVER'] ?? 'https://your-service-url.run.app', PHP_URL_HOST);
+$wgPasswordSender = $_ENV['WIKI_PASSWORD_SENDER'] ?? 'noreply@' . parse_url($_ENV['WIKI_SERVER'] ?? 'https://your-service-url.run.app', PHP_URL_HOST);
+
+# Email authentication and confirmation settings
+$wgEmailAuthentication = true;
+$wgEmailConfirmToEdit = true; # Require confirmed email to edit
+
+# SMTP Configuration - REQUIRED for sending confirmation emails
+# MediaWiki will use SMTP if configured, otherwise falls back to PHP mail()
+# Configure SMTP using environment variables
 if (isset($_ENV['SMTP_HOST'])) {
     $wgSMTP = [
         'host' => $_ENV['SMTP_HOST'],
@@ -94,6 +110,7 @@ if (isset($_ENV['SMTP_HOST'])) {
         'auth' => true,
         'username' => $_ENV['SMTP_USERNAME'] ?? '',
         'password' => $_ENV['SMTP_PASSWORD'] ?? '',
+        'IDHost' => parse_url($_ENV['WIKI_SERVER'] ?? 'https://your-service-url.run.app', PHP_URL_HOST),
     ];
 }
 
