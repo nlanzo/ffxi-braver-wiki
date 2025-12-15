@@ -167,7 +167,10 @@ RUN { \
     echo '      add_header X-Content-Type-Options "nosniff" always;'; \
     echo '    }'; \
     echo '    location / {'; \
-    echo '      try_files $uri $uri/ /index.php?$query_string;'; \
+    echo '      try_files $uri $uri/ @mediawiki;'; \
+    echo '    }'; \
+    echo '    location @mediawiki {'; \
+    echo '      rewrite ^/(.*)$ /index.php?title=$1&$args last;'; \
     echo '    }'; \
     echo '    location ~ \.php$ {'; \
     echo '      fastcgi_pass 127.0.0.1:9000;'; \

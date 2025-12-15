@@ -53,6 +53,7 @@ $wgFavicon = $_ENV['WIKI_FAVICON_URL'] ?? '';
 ## The URL base path to the directory containing the wiki;
 ## defaults for all runtime URL paths are based off of this.
 $wgScriptPath = "";
+$wgArticlePath = "/$1";
 
 # Wiki URL (set this to your Cloud Run service URL)
 $wgServer = $_ENV['WIKI_SERVER'] ?? 'https://your-service-url.run.app';
