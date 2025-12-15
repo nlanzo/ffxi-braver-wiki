@@ -103,11 +103,12 @@ RUN wget -q https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/
 
 # Configure PHP for Cloud Run
 RUN { \
-    echo 'memory_limit = 256M'; \
+    echo 'memory_limit = 512M'; \
     echo 'upload_max_filesize = 20M'; \
     echo 'post_max_size = 20M'; \
     echo 'max_execution_time = 300'; \
     echo 'max_input_time = 300'; \
+    echo 'max_input_vars = 5000'; \
     echo 'date.timezone = UTC'; \
     } > /usr/local/etc/php/conf.d/mediawiki.ini
 
@@ -149,6 +150,11 @@ RUN { \
     echo '  sendfile on;'; \
     echo '  keepalive_timeout 65;'; \
     echo '  client_max_body_size 20M;'; \
+    echo '  client_body_temp_path /tmp/nginx_client_body;'; \
+    echo '  proxy_temp_path /tmp/nginx_proxy;'; \
+    echo '  fastcgi_temp_path /tmp/nginx_fastcgi;'; \
+    echo '  uwsgi_temp_path /tmp/nginx_uwsgi;'; \
+    echo '  scgi_temp_path /tmp/nginx_scgi;'; \
     echo '  server {'; \
     echo '    listen 8080;'; \
     echo '    server_name _;'; \
