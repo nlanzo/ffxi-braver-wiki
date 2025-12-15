@@ -45,6 +45,11 @@ $wgLogos = [
     '1x' => $_ENV['WIKI_LOGO_URL'] ?? '',
 ];
 
+# Favicon
+# You can set this via environment variable WIKI_FAVICON_URL
+# Example: https://storage.googleapis.com/your-bucket/favicon.ico
+$wgFavicon = $_ENV['WIKI_FAVICON_URL'] ?? '';
+
 ## The URL base path to the directory containing the wiki;
 ## defaults for all runtime URL paths are based off of this.
 $wgScriptPath = "";
