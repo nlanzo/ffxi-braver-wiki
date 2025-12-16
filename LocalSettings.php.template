@@ -99,15 +99,18 @@ if ( !isset( $wgFileBackends ) || !is_array( $wgFileBackends ) ) {
 $wgFileBackends['s3']['endpoint'] = "https://{$wgAWSBucketDomain}";
 $wgFileBackends['s3']['use_path_style_endpoint'] = true; // Required for GCS (doesn't use subdomains)
 
-// Configure backend public URL BEFORE Extension:AWS loads
+// Configure backend BEFORE Extension:AWS loads
 // This ensures Extension:AWS uses the correct URL format with bucket name in path
 if ( !empty( $wgAWSBucketName ) ) {
+    // Set backend name (required by MediaWiki)
+    $wgFileBackends['s3']['name'] = 's3';
+    
     $subdir = $wgAWSBucketTopSubdirectory ?? '';
     $publicUrl = "https://{$wgAWSBucketDomain}/{$wgAWSBucketName}{$subdir}";
     $wgFileBackends['s3']['publicUrl'] = $publicUrl;
     // Set container name to bucket name for path-style endpoints
     $wgFileBackends['s3']['container'] = $wgAWSBucketName;
-    error_log( "Pre-configured backend publicUrl: " . $publicUrl );
+    error_log( "Pre-configured backend - name: s3, publicUrl: " . $publicUrl );
 }
 
 // Configure $wgLocalFileRepo BEFORE Extension:AWS loads
@@ -162,6 +165,11 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
     // Extension:AWS uses backend zone URLs to generate image URLs
     // For path-style endpoints, we need to ensure these include the bucket name
     if ( isset( $wgFileBackends['s3'] ) && is_array( $wgFileBackends['s3'] ) ) {
+        // Ensure backend has a name (required by MediaWiki)
+        if ( !isset( $wgFileBackends['s3']['name'] ) ) {
+            $wgFileBackends['s3']['name'] = 's3';
+        }
+        
         // Ensure container name is set to bucket name for path-style endpoints
         if ( !isset( $wgFileBackends['s3']['container'] ) ) {
             $wgFileBackends['s3']['container'] = $wgAWSBucketName;
@@ -180,23 +188,29 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
         }
     }
     
-    // Also set zone URLs on the actual repo instance
-    // This ensures MediaWiki uses the correct URLs when generating image links
-    try {
-        $repoGroup = $services->getRepoGroup();
-        if ( $repoGroup ) {
-            $localRepo = $repoGroup->getLocalRepo();
-            if ( $localRepo && method_exists( $localRepo, 'setZoneUrl' ) ) {
-                // Set public zone URL (for full-size images)
-                $localRepo->setZoneUrl( 'public', $publicUrl );
-                // Set thumb zone URL (for thumbnails)
-                $thumbUrl = "https://{$domain}/{$wgAWSBucketName}{$subdir}/thumb";
-                $localRepo->setZoneUrl( 'thumb', $thumbUrl );
-                error_log( "Set repo zone URLs - public: {$publicUrl}, thumb: {$thumbUrl}" );
-            }
+    // Configure zone URLs in $wgLocalFileRepo instead of calling setZoneUrl on instance
+    // This avoids the "Cannot register a backend with no name" error
+    // MediaWiki will use these zone URLs when generating image links
+    if ( isset( $wgLocalFileRepo ) && is_array( $wgLocalFileRepo ) ) {
+        $thumbUrl = "https://{$domain}/{$wgAWSBucketName}{$subdir}/thumb";
+        
+        // Configure zones in $wgLocalFileRepo
+        // MediaWiki uses these to generate URLs for different file zones
+        if ( !isset( $wgLocalFileRepo['zones'] ) || !is_array( $wgLocalFileRepo['zones'] ) ) {
+            $wgLocalFileRepo['zones'] = [];
         }
-    } catch ( \Exception $e ) {
-        error_log( "Could not set repo zone URLs: " . $e->getMessage() );
+        
+        // Set public zone URL (for full-size images)
+        $wgLocalFileRepo['zones']['public'] = [
+            'url' => $publicUrl
+        ];
+        
+        // Set thumb zone URL (for thumbnails)
+        $wgLocalFileRepo['zones']['thumb'] = [
+            'url' => $thumbUrl
+        ];
+        
+        error_log( "Configured zone URLs in \$wgLocalFileRepo - public: {$publicUrl}, thumb: {$thumbUrl}" );
     }
 };
 
