@@ -84,11 +84,11 @@ $wgAWSBucketName = $_ENV['GCS_BUCKET_NAME'] ?? '';
 $wgAWSBucketTopSubdirectory = '/images'; // Leading slash required
 
 // GCS endpoint domain - Extension:AWS uses this for URL generation
-// For path-style endpoints, Extension:AWS doesn't properly handle $1 placeholder
-// So we'll set it to the full domain and override URLs in the hook below
-// According to Extension:AWS docs: $wgAWSBucketDomain uses $1 as placeholder for bucket name
-// But for path-style endpoints, we need to construct URLs manually
-$wgAWSBucketDomain = $_ENV['GCS_BUCKET_DOMAIN'] ?? 'storage.googleapis.com';
+// For path-style endpoints, we need to include $1 (bucket name) in the path
+// Extension:AWS replaces $1 with the bucket name, so this becomes:
+// https://storage.googleapis.com/bucket-name/images/file.jpg
+$gcsDomain = $_ENV['GCS_BUCKET_DOMAIN'] ?? 'storage.googleapis.com';
+$wgAWSBucketDomain = "{$gcsDomain}/$1"; // Include $1 placeholder for bucket name in path
 
 // CRITICAL: Configure file backend to use GCS endpoint instead of AWS S3
 // This must be set BEFORE loading Extension:AWS
@@ -96,7 +96,8 @@ $wgAWSBucketDomain = $_ENV['GCS_BUCKET_DOMAIN'] ?? 'storage.googleapis.com';
 if ( !isset( $wgFileBackends ) || !is_array( $wgFileBackends ) ) {
     $wgFileBackends = [];
 }
-$wgFileBackends['s3']['endpoint'] = "https://{$wgAWSBucketDomain}";
+// Endpoint for API calls (no $1 placeholder needed)
+$wgFileBackends['s3']['endpoint'] = "https://{$gcsDomain}";
 $wgFileBackends['s3']['use_path_style_endpoint'] = true; // Required for GCS (doesn't use subdomains)
 
 // Configure backend BEFORE Extension:AWS loads
@@ -106,8 +107,9 @@ if ( !empty( $wgAWSBucketName ) ) {
     $wgFileBackends['s3']['name'] = 's3';
     
     $subdir = $wgAWSBucketTopSubdirectory ?? '';
-    $publicUrl = "https://{$wgAWSBucketDomain}/{$wgAWSBucketName}{$subdir}";
-    $thumbUrl = "https://{$wgAWSBucketDomain}/{$wgAWSBucketName}{$subdir}/thumb";
+    // Use base domain for manual URL construction (not $wgAWSBucketDomain which has /$1)
+    $publicUrl = "https://{$gcsDomain}/{$wgAWSBucketName}{$subdir}";
+    $thumbUrl = "https://{$gcsDomain}/{$wgAWSBucketName}{$subdir}/thumb";
     
     // Set container name to bucket name for path-style endpoints
     $wgFileBackends['s3']['container'] = $wgAWSBucketName;
@@ -152,7 +154,8 @@ $wgLocalFileRepo['initialCapital'] = true;
 // Configure direct GCS URL if bucket is configured
 if ( !empty( $wgAWSBucketName ) ) {
     $subdir = $wgAWSBucketTopSubdirectory ?? '';
-    $publicUrl = "https://{$wgAWSBucketDomain}/{$wgAWSBucketName}{$subdir}";
+    // Use base domain for manual URL construction
+    $publicUrl = "https://{$gcsDomain}/{$wgAWSBucketName}{$subdir}";
     $wgLocalFileRepo['url'] = $publicUrl;
     error_log( "Pre-configured \$wgLocalFileRepo['url'] to: " . $publicUrl );
 }
@@ -174,7 +177,8 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
     // Construct the correct public URL for path-style endpoints
     // Format: https://storage.googleapis.com/bucket-name/images/file.jpg
     $subdir = isset( $wgAWSBucketTopSubdirectory ) ? $wgAWSBucketTopSubdirectory : '';
-    $domain = isset( $wgAWSBucketDomain ) ? $wgAWSBucketDomain : 'storage.googleapis.com';
+    // Use base domain (not $wgAWSBucketDomain which has /$1 for Extension:AWS)
+    $domain = $_ENV['GCS_BUCKET_DOMAIN'] ?? 'storage.googleapis.com';
     $publicUrl = "https://{$domain}/{$wgAWSBucketName}{$subdir}";
     
     // Set URL on file repo configuration
