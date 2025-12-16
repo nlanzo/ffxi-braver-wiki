@@ -80,11 +80,9 @@ $wgAWSRegion = 'auto'; // Required even for GCS
 // Your GCS bucket name
 $wgAWSBucketName = $_ENV['GCS_BUCKET_NAME'] ?? '';
 
-// GCS endpoint domain for public URLs
-// For path-style endpoints, Extension:AWS needs the bucket name in the domain
-// Format: https://storage.googleapis.com/bucket-name/file.jpg
-// However, since we're using a private bucket, we'll serve through img_auth.php instead
-// Set this to include bucket name for reference, but img_auth.php will be used for actual serving
+// GCS endpoint domain - used by Extension:AWS for URL generation
+// For path-style endpoints with private bucket, we'll serve via img_auth.php
+// Set a placeholder value - Extension:AWS might use this but we'll override URLs in hook
 $wgAWSBucketDomain = $_ENV['GCS_BUCKET_DOMAIN'] ?? 'storage.googleapis.com';
 
 // CRITICAL: Configure file backend to use GCS endpoint instead of AWS S3
@@ -97,33 +95,36 @@ $wgFileBackends['s3']['endpoint'] = "https://{$wgAWSBucketDomain}";
 $wgFileBackends['s3']['use_path_style_endpoint'] = true; // Required for GCS (doesn't use subdomains)
 // For private bucket, we'll serve through img_auth.php, so don't set public URL here
 
+// CRITICAL: Configure $wgLocalFileRepo BEFORE loading Extension:AWS
+// This ensures the URL is set to img_auth.php before Extension:AWS can override it
+if ( !isset( $wgLocalFileRepo ) || !is_array( $wgLocalFileRepo ) ) {
+    $wgLocalFileRepo = [];
+}
+$wgLocalFileRepo['name'] = 'local';
+$wgLocalFileRepo['directory'] = "$IP/images";
+$wgLocalFileRepo['url'] = $wgScriptPath . '/img_auth.php'; // Set BEFORE Extension:AWS loads
+$wgLocalFileRepo['scriptDirUrl'] = $wgScriptPath;
+$wgLocalFileRepo['hashLevels'] = 2;
+$wgLocalFileRepo['thumbScriptUrl'] = $wgScriptPath . '/thumb.php';
+$wgLocalFileRepo['transformVia404'] = true;
+$wgLocalFileRepo['initialCapital'] = true;
+
 // Load Extension:AWS - it will use the endpoint configuration above
 wfLoadExtension( 'AWS' );
 
-// Ensure URL is configured correctly after Extension:AWS loads
-// Extension:AWS might try to set public URLs, but we want to use img_auth.php for private bucket
-// Use a hook that runs after Extension:AWS's MediaWikiServices hook
+// Ensure URL stays configured correctly after Extension:AWS loads
+// Extension:AWS might try to override URLs, so we force it back to img_auth.php
 $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $services ) {
-    global $wgLocalFileRepo, $wgScriptPath, $wgFileBackends;
+    global $wgLocalFileRepo, $wgScriptPath;
     
     // Force URL to use img_auth.php for private bucket
-    // This ensures images are served through MediaWiki's authentication, not direct GCS URLs
+    // This MUST come after Extension:AWS's hook to override any URL changes
     if ( isset( $wgLocalFileRepo ) && is_array( $wgLocalFileRepo ) ) {
         $wgLocalFileRepo['url'] = $wgScriptPath . '/img_auth.php';
         $wgLocalFileRepo['scriptDirUrl'] = $wgScriptPath;
+        
+        error_log( "Forced \$wgLocalFileRepo['url'] to img_auth.php: " . $wgLocalFileRepo['url'] );
     }
-    
-    // Also ensure the file backend doesn't try to use direct GCS URLs
-    // Configure zone URLs to use img_auth.php
-    if ( isset( $wgFileBackends['s3'] ) && is_array( $wgFileBackends['s3'] ) ) {
-        // Don't set public URLs - let MediaWiki use img_auth.php instead
-        // Extension:AWS might try to set these, but we override them
-        if ( isset( $wgFileBackends['s3']['publicUrl'] ) ) {
-            unset( $wgFileBackends['s3']['publicUrl'] );
-        }
-    }
-    
-    error_log( "Configured file repository to use img_auth.php for private bucket" );
 };
 
 // IMPORTANT: Keep your GCS bucket PRIVATE for security.
