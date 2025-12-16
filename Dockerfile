@@ -45,9 +45,7 @@ RUN sed -i 's/ENGINE = MyISAM/ENGINE = InnoDB/g' /var/www/html/sql/mysql/tables-
 # Install MediaWiki extensions like ExternalStorage with GCS backend for Cloud Storage integration
 # We install this in the builder stage so it's included in the COPY later
 RUN cd extensions/ && \
-    git clone --depth 1 https://gerrit.wikimedia.org/r/mediawiki/extensions/AWS && \
-    cd AWS && \
-    composer install --no-dev
+    git clone --depth 1 https://gerrit.wikimedia.org/r/mediawiki/extensions/AWS
 
 # Note: ExternalStorage extension should be installed manually after deployment
 # Cloud Storage integration can be configured via MediaWiki extensions
