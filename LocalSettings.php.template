@@ -62,12 +62,54 @@ $wgServer = $_ENV['WIKI_SERVER'] ?? 'https://your-service-url.run.app';
 $wgSecretKey = $_ENV['WIKI_SECRET_KEY'] ?? 'your-secret-key-change-this';
 $wgUpgradeKey = $_ENV['WIKI_UPGRADE_KEY'] ?? 'your-upgrade-key-change-this';
 
-# File uploads - Use Cloud Storage API via ExternalStorage extension
-# ExternalStorage extension is installed in the Docker image
-# Configure ExternalStorage to use Google Cloud Storage backend
-# See: https://www.mediawiki.org/wiki/Extension:ExternalStorage
-$wgUploadDirectory = "$IP/images";
-$wgUploadPath = '/images';
+# File uploads - Use Cloud Storage via AWS extension (S3 compatibility)
+# See: https://www.mediawiki.org/wiki/Extension:AWS
+wfLoadExtension( 'AWS' );
+
+$wgAWSCredentials = [
+    'key' => $_ENV['GCS_ACCESS_KEY'] ?? '',
+    'secret' => $_ENV['GCS_SECRET_KEY'] ?? '',
+    'token' => false
+];
+
+$wgAWSRegion = 'auto'; // GCS handles region automatically
+$wgAWSBucketName = $_ENV['GCS_BUCKET_NAME'] ?? '';
+$wgAWSBucketDomain = $_ENV['GCS_BUCKET_DOMAIN'] ?? 'storage.googleapis.com';
+
+// Enable GCS/S3 Storage
+$wgFileBackends['s3'] = [
+    'class' => 'AmazonS3FileBackend',
+    'name' => 's3',
+    'wikiId' => $wgDBname,
+    'lockManager' => 'nullLockManager',
+    'containerPaths' => [
+        "$wgDBname-local-public" => "{$wgAWSBucketName}",
+        "$wgDBname-local-thumb" => "{$wgAWSBucketName}/thumb"
+    ],
+    'endpoint' => 'https://storage.googleapis.com'
+];
+
+// Configure the local repository to use the S3 backend
+$wgLocalFileRepo = [
+    'class' => 'LocalRepo',
+    'name' => 'local',
+    'backend' => 's3',
+    'scriptDirUrl' => $wgScriptPath,
+    'url' => $wgScriptPath . '/img_auth.php', // Pass through img_auth.php for permissions if needed, or public URL
+    'hashLevels' => 2,
+    'thumbScriptUrl' => $wgScriptPath . '/thumb.php',
+    'transformVia404' => true,
+    'initialCapital' => true,
+    'deletedHashLevels' => 3,
+];
+
+// Direct public URL access (optional, if bucket is public)
+// $wgLocalFileRepo['url'] = "https://{$wgAWSBucketDomain}/{$wgAWSBucketName}";
+
+# Old Upload Config (disabled in favor of AWS/GCS)
+# $wgUploadDirectory = "$IP/images";
+# $wgUploadPath = '/images';
+
 
 # Security: Nginx is configured to prevent PHP execution in /images/ directory
 # and to add X-Content-Type-Options: nosniff header
