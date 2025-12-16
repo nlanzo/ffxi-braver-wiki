@@ -36,6 +36,10 @@ WORKDIR /var/www/html
 # Copy MediaWiki files
 COPY mediawiki-1.44.2/ /var/www/html/
 
+# Copy composer.json if it exists (it might not be in the tarball, but we will init it)
+# Initialize composer if not present
+RUN if [ ! -f composer.json ]; then composer init --name="mediawiki/core" --type=project --no-interaction; fi
+
 # Patch SQL files to use InnoDB instead of MyISAM (Cloud SQL doesn't support MyISAM)
 # MySQL 5.6+ supports FULLTEXT indexes on InnoDB tables
 RUN sed -i 's/ENGINE = MyISAM/ENGINE = InnoDB/g' /var/www/html/sql/mysql/tables-generated.sql \
@@ -48,7 +52,20 @@ RUN cd extensions/ && \
     git clone --depth 1 https://gerrit.wikimedia.org/r/mediawiki/extensions/AWS && \
     # Install AWS SDK for PHP as it is a requirement for the AWS extension
     cd ../ && \
-    composer require aws/aws-sdk-php
+    composer require aws/aws-sdk-php && \
+    # Debug: Check if extension exists
+    ls -la extensions/AWS
+
+# Download AWS SDK for PHP manually and place it where the AWS extension expects it or in a common vendor dir
+# Note: MediaWiki 1.39+ has a vendor directory. We can use composer to add it there.
+# The AWS extension often expects to find the SDK or have it loaded.
+# By running composer require at the root, it ends up in /var/www/html/vendor
+# We need to make sure this 'vendor' is preserved or copied.
+
+# In the next stage (Production), we COPY /var/www/html /var/www/html
+# This implies 'extensions/AWS' and 'vendor/' (with aws-sdk-php) should be copied.
+
+
 
 # Note: ExternalStorage extension should be installed manually after deployment
 # Cloud Storage integration can be configured via MediaWiki extensions
@@ -248,6 +265,10 @@ RUN mkdir -p /etc/supervisor/conf.d \
 
 # Copy application files from builder
 COPY --from=builder --chown=www-data:www-data /var/www/html /var/www/html
+
+# Debug: Check if extensions were copied
+RUN ls -la /var/www/html/extensions/AWS || echo "AWS extension missing in production stage!"
+
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /var/www/html/images \
