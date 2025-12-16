@@ -90,7 +90,10 @@ $wgAWSBucketDomain = $_ENV['GCS_BUCKET_DOMAIN'] ?? 'storage.googleapis.com';
 // Configure MediaWiki to serve images through PHP (img_auth.php) instead of direct GCS URLs.
 // This keeps the bucket private while still allowing image display.
 // The Extension:AWS will automatically configure the file backend to read from GCS.
-// Note: This configuration must come AFTER wfLoadExtension('AWS') so it doesn't get overridden.
+// Note: Initialize $wgLocalFileRepo as an array first, then configure it.
+if ( !isset( $wgLocalFileRepo ) || !is_array( $wgLocalFileRepo ) ) {
+    $wgLocalFileRepo = [];
+}
 $wgLocalFileRepo['scriptDirUrl'] = $wgScriptPath;
 $wgLocalFileRepo['url'] = $wgScriptPath . '/img_auth.php';
 $wgLocalFileRepo['hashLevels'] = 2;
