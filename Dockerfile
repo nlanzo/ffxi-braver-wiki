@@ -42,6 +42,13 @@ RUN sed -i 's/ENGINE = MyISAM/ENGINE = InnoDB/g' /var/www/html/sql/mysql/tables-
     && sed -i 's/ENGINE=MyISAM/ENGINE=InnoDB/g' /var/www/html/sql/mysql/tables-generated.sql \
     && sed -i 's/ENGINE=MyISAM/ENGINE=InnoDB/g' /var/www/html/sql/mysql/patch-searchindex.sql || true
 
+# Install MediaWiki extensions like ExternalStorage with GCS backend for Cloud Storage integration
+# We install this in the builder stage so it's included in the COPY later
+RUN cd extensions/ && \
+    git clone --depth 1 https://gerrit.wikimedia.org/r/mediawiki/extensions/AWS && \
+    cd AWS && \
+    composer install --no-dev
+
 # Note: ExternalStorage extension should be installed manually after deployment
 # Cloud Storage integration can be configured via MediaWiki extensions
 # See documentation for installing ExternalStorage or other GCS-compatible extensions
@@ -99,11 +106,6 @@ RUN wget -q https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/
 
 # Note: Cloud Storage integration is handled via MediaWiki extensions using Cloud Storage API
 # Cloud Run doesn't support FUSE, so gcsfuse is not used
-# Install MediaWiki extensions like ExternalStorage with GCS backend for Cloud Storage integration
-RUN cd /var/www/html/extensions/ && \
-    git clone --depth 1 https://gerrit.wikimedia.org/r/mediawiki/extensions/AWS && \
-    cd AWS && \
-    composer install --no-dev
 
 # Configure PHP for Cloud Run
 RUN { \
