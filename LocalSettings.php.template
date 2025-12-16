@@ -82,42 +82,35 @@ $wgAWSBucketName = $_ENV['GCS_BUCKET_NAME'] ?? '';
 // GCS endpoint domain (defaults to storage.googleapis.com)
 $wgAWSBucketDomain = $_ENV['GCS_BUCKET_DOMAIN'] ?? 'storage.googleapis.com';
 
-// CRITICAL: Pre-configure file backend with GCS endpoint BEFORE loading Extension:AWS
-// Extension:AWS will use this configuration when it initializes
-if ( !isset( $wgFileBackends ) || !is_array( $wgFileBackends ) ) {
-    $wgFileBackends = [];
-}
-
-// Configure the S3 backend with GCS endpoint
-// Extension:AWS looks for a backend named 's3' or creates one
-$wgFileBackends['s3'] = [
-    'class' => 'AmazonS3FileBackend',
-    'name' => 's3',
-    'lockManager' => 'nullLockManager',
-    'containerPaths' => [
-        "$wgDBname-local-public" => "{$wgAWSBucketName}",
-        "$wgDBname-local-thumb" => "{$wgAWSBucketName}/thumb"
-    ],
-    // CRITICAL: AWS SDK client configuration for GCS
-    // These options are passed to the S3Client constructor
-    'endpoint' => "https://{$wgAWSBucketDomain}",
-    'use_path_style_endpoint' => true,
-];
-
-// Now load the extension - it should use our pre-configured backend
+// Load Extension:AWS - it will automatically configure the file backend
 wfLoadExtension( 'AWS' );
 
-// Use hook as fallback to ensure GCS endpoint is set
+// CRITICAL: Use hook to modify S3Client endpoint to use GCS instead of AWS S3
+// Extension:AWS creates the backend automatically, but we need to change the endpoint
 $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $services ) {
     global $wgAWSBucketDomain;
     
     try {
         $backendGroup = $services->getFileBackendGroup();
+        if ( !$backendGroup ) {
+            return;
+        }
+        
         $backends = $backendGroup->getBackends();
+        if ( !is_array( $backends ) ) {
+            return;
+        }
         
         foreach ( $backends as $backendName => $backend ) {
+            if ( !is_object( $backend ) ) {
+                continue;
+            }
+            
             $backendClass = get_class( $backend );
-            if ( strpos( $backendClass, 'AmazonS3' ) !== false ) {
+            // Check if this is an AmazonS3FileBackend from Extension:AWS
+            if ( strpos( $backendClass, 'AmazonS3' ) !== false || 
+                 strpos( $backendClass, 'AWS' ) !== false ) {
+                
                 $reflection = new \ReflectionClass( $backend );
                 $properties = $reflection->getProperties();
                 
@@ -126,13 +119,17 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
                     $value = $property->getValue( $backend );
                     
                     if ( $value instanceof \Aws\S3\S3Client ) {
+                        // Get current config and modify for GCS
                         $config = $value->getConfig()->toArray();
                         $config['endpoint'] = "https://{$wgAWSBucketDomain}";
                         $config['use_path_style_endpoint'] = true;
                         $config['region'] = 'auto';
                         
+                        // Create new S3Client with GCS endpoint
                         $newClient = new \Aws\S3\S3Client( $config );
                         $property->setValue( $backend, $newClient );
+                        
+                        error_log( "GCS endpoint configured successfully for backend: {$backendName}" );
                         break;
                     }
                 }
