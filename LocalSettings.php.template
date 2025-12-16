@@ -83,10 +83,11 @@ $wgAWSBucketName = $_ENV['GCS_BUCKET_NAME'] ?? '';
 // Store images in /images subdirectory instead of bucket root
 $wgAWSBucketTopSubdirectory = '/images'; // Leading slash required
 
-// GCS endpoint domain - configure for path-style endpoints with bucket name in path
-// For path-style: https://storage.googleapis.com/bucket-name/images/file.jpg
-// Extension:AWS uses $1 as placeholder for bucket name, but for path-style we need full URL
-// We'll configure the URL directly in $wgLocalFileRepo after Extension:AWS loads
+// GCS endpoint domain - Extension:AWS uses this for URL generation
+// For path-style endpoints, Extension:AWS doesn't properly handle $1 placeholder
+// So we'll set it to the full domain and override URLs in the hook below
+// According to Extension:AWS docs: $wgAWSBucketDomain uses $1 as placeholder for bucket name
+// But for path-style endpoints, we need to construct URLs manually
 $wgAWSBucketDomain = $_ENV['GCS_BUCKET_DOMAIN'] ?? 'storage.googleapis.com';
 
 // CRITICAL: Configure file backend to use GCS endpoint instead of AWS S3
@@ -97,6 +98,17 @@ if ( !isset( $wgFileBackends ) || !is_array( $wgFileBackends ) ) {
 }
 $wgFileBackends['s3']['endpoint'] = "https://{$wgAWSBucketDomain}";
 $wgFileBackends['s3']['use_path_style_endpoint'] = true; // Required for GCS (doesn't use subdomains)
+
+// Configure backend public URL BEFORE Extension:AWS loads
+// This ensures Extension:AWS uses the correct URL format with bucket name in path
+if ( !empty( $wgAWSBucketName ) ) {
+    $subdir = $wgAWSBucketTopSubdirectory ?? '';
+    $publicUrl = "https://{$wgAWSBucketDomain}/{$wgAWSBucketName}{$subdir}";
+    $wgFileBackends['s3']['publicUrl'] = $publicUrl;
+    // Set container name to bucket name for path-style endpoints
+    $wgFileBackends['s3']['container'] = $wgAWSBucketName;
+    error_log( "Pre-configured backend publicUrl: " . $publicUrl );
+}
 
 // Configure $wgLocalFileRepo BEFORE Extension:AWS loads
 // Extension:AWS expects certain keys to be set, and we want to control the URL
@@ -125,23 +137,66 @@ if ( !empty( $wgAWSBucketName ) ) {
 wfLoadExtension( 'AWS' );
 
 // Ensure URL stays configured after Extension:AWS loads
-// Extension:AWS might override it, so we set it again in a hook
+// Extension:AWS generates URLs from $wgAWSBucketDomain, but for path-style endpoints
+// it doesn't include the bucket name correctly. We override the URLs here.
 $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $services ) {
-    global $wgLocalFileRepo, $wgAWSBucketName, $wgAWSBucketDomain, $wgAWSBucketTopSubdirectory;
+    global $wgLocalFileRepo, $wgAWSBucketName, $wgAWSBucketDomain, $wgAWSBucketTopSubdirectory, $wgFileBackends;
     
     // Only proceed if bucket name is configured
     if ( empty( $wgAWSBucketName ) ) {
         return;
     }
     
-    // Reconstruct the public URL
+    // Construct the correct public URL for path-style endpoints
+    // Format: https://storage.googleapis.com/bucket-name/images/file.jpg
     $subdir = isset( $wgAWSBucketTopSubdirectory ) ? $wgAWSBucketTopSubdirectory : '';
     $domain = isset( $wgAWSBucketDomain ) ? $wgAWSBucketDomain : 'storage.googleapis.com';
     $publicUrl = "https://{$domain}/{$wgAWSBucketName}{$subdir}";
     
-    // Ensure URL is set (Extension:AWS might have changed it)
+    // Set URL on file repo configuration
     if ( isset( $wgLocalFileRepo ) && is_array( $wgLocalFileRepo ) ) {
         $wgLocalFileRepo['url'] = $publicUrl;
+    }
+    
+    // CRITICAL: Also set zone URLs on the backend configuration
+    // Extension:AWS uses backend zone URLs to generate image URLs
+    // For path-style endpoints, we need to ensure these include the bucket name
+    if ( isset( $wgFileBackends['s3'] ) && is_array( $wgFileBackends['s3'] ) ) {
+        // Ensure container name is set to bucket name for path-style endpoints
+        if ( !isset( $wgFileBackends['s3']['container'] ) ) {
+            $wgFileBackends['s3']['container'] = $wgAWSBucketName;
+        }
+        
+        // Set public zone URL to include bucket name in path
+        // Extension:AWS will use this when generating image URLs
+        $wgFileBackends['s3']['publicUrl'] = $publicUrl;
+        
+        // Also configure container paths if they exist
+        if ( isset( $wgFileBackends['s3']['containerPaths'] ) && is_array( $wgFileBackends['s3']['containerPaths'] ) ) {
+            // Ensure public zone uses correct URL with bucket name
+            if ( isset( $wgFileBackends['s3']['containerPaths']['public'] ) ) {
+                $wgFileBackends['s3']['containerPaths']['public']['url'] = $publicUrl;
+            }
+        }
+    }
+    
+    // Also set zone URLs on the actual repo instance
+    // This ensures MediaWiki uses the correct URLs when generating image links
+    try {
+        $repoGroup = $services->getRepoGroup();
+        if ( $repoGroup ) {
+            $localRepo = $repoGroup->getLocalRepo();
+            if ( $localRepo && method_exists( $localRepo, 'setZoneUrl' ) ) {
+                // Set public zone URL (for full-size images)
+                $localRepo->setZoneUrl( 'public', $publicUrl );
+                // Set thumb zone URL (for thumbnails)
+                $thumbUrl = "https://{$domain}/{$wgAWSBucketName}{$subdir}/thumb";
+                $localRepo->setZoneUrl( 'thumb', $thumbUrl );
+                error_log( "Set repo zone URLs - public: {$publicUrl}, thumb: {$thumbUrl}" );
+            }
+        }
+    } catch ( \Exception $e ) {
+        error_log( "Could not set repo zone URLs: " . $e->getMessage() );
     }
 };
 
