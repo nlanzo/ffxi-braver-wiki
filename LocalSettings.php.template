@@ -87,17 +87,23 @@ wfLoadExtension( 'AWS' );
 
 // CRITICAL: Use hook to modify S3Client endpoint to use GCS instead of AWS S3
 // Extension:AWS creates the backend automatically, but we need to change the endpoint
+// Note: Temporarily disabled to debug 502 errors - will re-enable after confirming basic functionality
+/*
 $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $services ) {
     global $wgAWSBucketDomain;
     
     try {
+        if ( !isset( $wgAWSBucketDomain ) || empty( $wgAWSBucketDomain ) ) {
+            return; // Skip if not configured
+        }
+        
         $backendGroup = $services->getFileBackendGroup();
         if ( !$backendGroup ) {
             return;
         }
         
         $backends = $backendGroup->getBackends();
-        if ( !is_array( $backends ) ) {
+        if ( !is_array( $backends ) || empty( $backends ) ) {
             return;
         }
         
@@ -111,34 +117,41 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
             if ( strpos( $backendClass, 'AmazonS3' ) !== false || 
                  strpos( $backendClass, 'AWS' ) !== false ) {
                 
-                $reflection = new \ReflectionClass( $backend );
-                $properties = $reflection->getProperties();
-                
-                foreach ( $properties as $property ) {
-                    $property->setAccessible( true );
-                    $value = $property->getValue( $backend );
+                try {
+                    $reflection = new \ReflectionClass( $backend );
+                    $properties = $reflection->getProperties();
                     
-                    if ( $value instanceof \Aws\S3\S3Client ) {
-                        // Get current config and modify for GCS
-                        $config = $value->getConfig()->toArray();
-                        $config['endpoint'] = "https://{$wgAWSBucketDomain}";
-                        $config['use_path_style_endpoint'] = true;
-                        $config['region'] = 'auto';
+                    foreach ( $properties as $property ) {
+                        $property->setAccessible( true );
+                        $value = $property->getValue( $backend );
                         
-                        // Create new S3Client with GCS endpoint
-                        $newClient = new \Aws\S3\S3Client( $config );
-                        $property->setValue( $backend, $newClient );
-                        
-                        error_log( "GCS endpoint configured successfully for backend: {$backendName}" );
-                        break;
+                        if ( $value instanceof \Aws\S3\S3Client ) {
+                            // Get current config and modify for GCS
+                            $config = $value->getConfig()->toArray();
+                            $config['endpoint'] = "https://{$wgAWSBucketDomain}";
+                            $config['use_path_style_endpoint'] = true;
+                            $config['region'] = 'auto';
+                            
+                            // Create new S3Client with GCS endpoint
+                            $newClient = new \Aws\S3\S3Client( $config );
+                            $property->setValue( $backend, $newClient );
+                            
+                            error_log( "GCS endpoint configured successfully for backend: {$backendName}" );
+                            break;
+                        }
                     }
+                } catch ( \ReflectionException $e ) {
+                    error_log( "Reflection error for backend {$backendName}: " . $e->getMessage() );
+                    continue;
                 }
             }
         }
     } catch ( \Exception $e ) {
         error_log( "GCS endpoint configuration failed: " . $e->getMessage() );
+        // Don't throw - allow MediaWiki to continue loading
     }
 };
+*/
 
 // IMPORTANT: Keep your GCS bucket PRIVATE for security.
 // LocalSettings.php should NOT be in the bucket - it's generated from the template
