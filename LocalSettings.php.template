@@ -147,11 +147,18 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
 
 // Configure MediaWiki to serve images through PHP (img_auth.php) instead of direct GCS URLs.
 // This keeps the bucket private while still allowing image display.
-// The Extension:AWS will automatically configure the file backend to read from GCS.
+// Extension:AWS creates a backend named 's3' - we reference it here.
 // Note: Initialize $wgLocalFileRepo as an array first, then configure it.
 if ( !isset( $wgLocalFileRepo ) || !is_array( $wgLocalFileRepo ) ) {
     $wgLocalFileRepo = [];
 }
+
+// REQUIRED keys for MediaWiki's automatic backend creation
+$wgLocalFileRepo['backend'] = 's3'; // Extension:AWS creates a backend named 's3'
+$wgLocalFileRepo['name'] = 'local'; // Repository name
+$wgLocalFileRepo['directory'] = "$IP/images"; // Directory path (required by MediaWiki, but actual storage is in GCS)
+
+// Additional configuration
 $wgLocalFileRepo['scriptDirUrl'] = $wgScriptPath;
 $wgLocalFileRepo['url'] = $wgScriptPath . '/img_auth.php';
 $wgLocalFileRepo['hashLevels'] = 2;
