@@ -98,47 +98,50 @@ if ( !isset( $wgFileBackends ) || !is_array( $wgFileBackends ) ) {
 $wgFileBackends['s3']['endpoint'] = "https://{$wgAWSBucketDomain}";
 $wgFileBackends['s3']['use_path_style_endpoint'] = true; // Required for GCS (doesn't use subdomains)
 
+// Configure $wgLocalFileRepo BEFORE Extension:AWS loads
+// Extension:AWS expects certain keys to be set, and we want to control the URL
+if ( !isset( $wgLocalFileRepo ) || !is_array( $wgLocalFileRepo ) ) {
+    $wgLocalFileRepo = [];
+}
+
+// Set required keys for MediaWiki file repository
+// 'class' is REQUIRED - MediaWiki needs to know which repository class to use
+$wgLocalFileRepo['class'] = 'LocalRepo'; // Core MediaWiki class for local file repositories
+$wgLocalFileRepo['name'] = 'local';
+$wgLocalFileRepo['directory'] = "$IP/images";
+$wgLocalFileRepo['hashLevels'] = 2;
+$wgLocalFileRepo['transformVia404'] = true;
+$wgLocalFileRepo['initialCapital'] = true;
+
+// Configure direct GCS URL if bucket is configured
+if ( !empty( $wgAWSBucketName ) ) {
+    $subdir = $wgAWSBucketTopSubdirectory ?? '';
+    $publicUrl = "https://{$wgAWSBucketDomain}/{$wgAWSBucketName}{$subdir}";
+    $wgLocalFileRepo['url'] = $publicUrl;
+    error_log( "Pre-configured \$wgLocalFileRepo['url'] to: " . $publicUrl );
+}
+
 // Load Extension:AWS - it will use the endpoint configuration above
 wfLoadExtension( 'AWS' );
 
-// Configure direct GCS URLs for public bucket
-// Extension:AWS will set up the backend, but we need to configure the public URL correctly
-// For path-style endpoints: https://storage.googleapis.com/bucket-name/images/file.jpg
-// Use a hook that runs AFTER Extension:AWS's MediaWikiServices hook
+// Ensure URL stays configured after Extension:AWS loads
+// Extension:AWS might override it, so we set it again in a hook
 $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $services ) {
-    global $wgLocalFileRepo, $wgAWSBucketName, $wgAWSBucketDomain, $wgAWSBucketTopSubdirectory, $wgFileBackends;
+    global $wgLocalFileRepo, $wgAWSBucketName, $wgAWSBucketDomain, $wgAWSBucketTopSubdirectory;
     
-    // Configure direct GCS URL for public bucket with path-style endpoint
-    // Format: https://storage.googleapis.com/bucket-name/images/file.jpg
-    if ( !empty( $wgAWSBucketName ) ) {
-        $subdir = $wgAWSBucketTopSubdirectory ?? '';
-        $publicUrl = "https://{$wgAWSBucketDomain}/{$wgAWSBucketName}{$subdir}";
-        
-        // Set URL on file repo (Extension:AWS might have set it, but we override)
-        if ( isset( $wgLocalFileRepo ) && is_array( $wgLocalFileRepo ) ) {
-            $wgLocalFileRepo['url'] = $publicUrl;
-            error_log( "Configured \$wgLocalFileRepo['url'] to: " . $publicUrl );
-        }
-        
-        // Also configure backend's public zone URL if Extension:AWS set one
-        if ( isset( $wgFileBackends['s3'] ) && is_array( $wgFileBackends['s3'] ) ) {
-            $wgFileBackends['s3']['publicUrl'] = $publicUrl;
-            error_log( "Configured backend publicUrl to: " . $publicUrl );
-        }
-        
-        // Also set on the actual repo instance if it exists
-        try {
-            $repoGroup = $services->getRepoGroup();
-            if ( $repoGroup ) {
-                $localRepo = $repoGroup->getLocalRepo();
-                if ( $localRepo ) {
-                    $localRepo->setZoneUrl( 'public', $publicUrl );
-                    error_log( "Set LocalRepo public zone URL to: " . $publicUrl );
-                }
-            }
-        } catch ( \Exception $e ) {
-            error_log( "Could not set repo zone URL: " . $e->getMessage() );
-        }
+    // Only proceed if bucket name is configured
+    if ( empty( $wgAWSBucketName ) ) {
+        return;
+    }
+    
+    // Reconstruct the public URL
+    $subdir = isset( $wgAWSBucketTopSubdirectory ) ? $wgAWSBucketTopSubdirectory : '';
+    $domain = isset( $wgAWSBucketDomain ) ? $wgAWSBucketDomain : 'storage.googleapis.com';
+    $publicUrl = "https://{$domain}/{$wgAWSBucketName}{$subdir}";
+    
+    // Ensure URL is set (Extension:AWS might have changed it)
+    if ( isset( $wgLocalFileRepo ) && is_array( $wgLocalFileRepo ) ) {
+        $wgLocalFileRepo['url'] = $publicUrl;
     }
 };
 
@@ -148,17 +151,8 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
 // If you see LocalSettings.php in your bucket, DELETE IT immediately for security!
 // Only images should be in the bucket, and they should be publicly readable.
 
-// Extension:AWS will automatically configure $wgLocalFileRepo via its MediaWikiServices hook.
-// The hook above sets the public URL to direct GCS URLs for the public bucket.
-// Basic required keys are set by Extension:AWS, but we ensure directory is configured:
-if ( !isset( $wgLocalFileRepo ) || !is_array( $wgLocalFileRepo ) ) {
-    $wgLocalFileRepo = [];
-}
-$wgLocalFileRepo['name'] = 'local';
-$wgLocalFileRepo['directory'] = "$IP/images"; // Logical path (actual storage is in GCS /images subdirectory)
-$wgLocalFileRepo['hashLevels'] = 2;
-$wgLocalFileRepo['transformVia404'] = true;
-$wgLocalFileRepo['initialCapital'] = true;
+// Extension:AWS will automatically configure the backend for $wgLocalFileRepo via its MediaWikiServices hook.
+// We've already set the required keys and URL above, and the hook ensures the URL stays configured.
 
 # Old Upload Config (disabled in favor of AWS/GCS)
 # $wgUploadDirectory = "$IP/images";
