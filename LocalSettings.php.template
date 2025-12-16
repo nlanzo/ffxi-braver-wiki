@@ -73,8 +73,9 @@ $wgAWSCredentials = [
 ];
 
 // GCS endpoint configuration - CRITICAL for GCS compatibility
-// GCS uses 'auto' for region, but we need to configure the endpoint
-$wgAWSRegion = 'auto';
+// According to Extension:AWS README for non-Amazon S3-compatible services:
+// https://github.com/edwardspec/mediawiki-aws-s3/blob/master/README.md
+$wgAWSRegion = 'auto'; // Required even for GCS
 
 // Your GCS bucket name
 $wgAWSBucketName = $_ENV['GCS_BUCKET_NAME'] ?? '';
@@ -82,93 +83,17 @@ $wgAWSBucketName = $_ENV['GCS_BUCKET_NAME'] ?? '';
 // GCS endpoint domain (defaults to storage.googleapis.com)
 $wgAWSBucketDomain = $_ENV['GCS_BUCKET_DOMAIN'] ?? 'storage.googleapis.com';
 
-// Load Extension:AWS - it will automatically configure the file backend
-wfLoadExtension( 'AWS' );
+// CRITICAL: Configure file backend to use GCS endpoint instead of AWS S3
+// This must be set BEFORE loading Extension:AWS
+// See: https://github.com/edwardspec/mediawiki-aws-s3/blob/master/README.md#non-standard-configuration
+if ( !isset( $wgFileBackends ) || !is_array( $wgFileBackends ) ) {
+    $wgFileBackends = [];
+}
+$wgFileBackends['s3']['endpoint'] = "https://{$wgAWSBucketDomain}";
+$wgFileBackends['s3']['use_path_style_endpoint'] = true; // Required for GCS (doesn't use subdomains)
 
-// CRITICAL: Use hook to modify S3Client endpoint to use GCS instead of AWS S3
-// Extension:AWS creates the backend automatically, but we need to change the endpoint
-// Hook runs when MediaWiki services are initialized
-$wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $services ) {
-    global $wgAWSBucketDomain;
-    
-    // Skip if GCS domain not configured
-    if ( empty( $wgAWSBucketDomain ) ) {
-        return;
-    }
-    
-    try {
-        $backendGroup = $services->getFileBackendGroup();
-        if ( !$backendGroup ) {
-            return;
-        }
-        
-        // Try to get the 's3' backend (Extension:AWS creates this)
-        // Note: Backend might be lazy-loaded, so we trigger it by calling get()
-        try {
-            $backend = $backendGroup->get( 's3' );
-        } catch ( \InvalidArgumentException $e ) {
-            // Backend 's3' doesn't exist yet or has different name
-            error_log( "Backend 's3' not found: " . $e->getMessage() );
-            return;
-        }
-        
-        if ( !is_object( $backend ) ) {
-            return;
-        }
-        
-        $backendClass = get_class( $backend );
-        // Check if this is an AmazonS3FileBackend from Extension:AWS
-        if ( strpos( $backendClass, 'AmazonS3' ) === false && 
-             strpos( $backendClass, 'AWS' ) === false ) {
-            error_log( "Backend 's3' is not an AWS backend, it's: {$backendClass}" );
-            return;
-        }
-        
-        // Use reflection to find and modify the S3Client
-        $reflection = new \ReflectionClass( $backend );
-        $properties = $reflection->getProperties();
-        
-        $foundS3Client = false;
-        foreach ( $properties as $property ) {
-            try {
-                $property->setAccessible( true );
-                $value = $property->getValue( $backend );
-                
-                // Check if this property contains an S3Client
-                if ( $value instanceof \Aws\S3\S3Client ) {
-                    $foundS3Client = true;
-                    
-                    // Get current config
-                    $config = $value->getConfig()->toArray();
-                    
-                    // Override with GCS endpoint configuration
-                    $config['endpoint'] = "https://{$wgAWSBucketDomain}";
-                    $config['use_path_style_endpoint'] = true;
-                    $config['region'] = 'auto';
-                    
-                    // Create new S3Client with GCS endpoint
-                    $newClient = new \Aws\S3\S3Client( $config );
-                    $property->setValue( $backend, $newClient );
-                    
-                    error_log( "GCS endpoint configured: https://{$wgAWSBucketDomain} for backend: s3" );
-                    break; // Found and updated S3Client
-                }
-            } catch ( \Exception $e ) {
-                // Skip this property if we can't access it
-                continue;
-            }
-        }
-        
-        if ( !$foundS3Client ) {
-            $propertyNames = array_map( function( $p ) { return $p->getName(); }, $properties );
-            error_log( "S3Client not found in backend 's3'. Properties: " . implode( ', ', $propertyNames ) );
-        }
-    } catch ( \Throwable $e ) {
-        // Catch any errors and log but don't crash MediaWiki
-        error_log( "GCS endpoint configuration error: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine() );
-        // Don't re-throw - allow MediaWiki to continue
-    }
-};
+// Load Extension:AWS - it will use the endpoint configuration above
+wfLoadExtension( 'AWS' );
 
 // IMPORTANT: Keep your GCS bucket PRIVATE for security.
 // LocalSettings.php should NOT be in the bucket - it's generated from the template
@@ -177,14 +102,14 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
 
 // Configure MediaWiki to serve images through PHP (img_auth.php) instead of direct GCS URLs.
 // This keeps the bucket private while still allowing image display.
-// Extension:AWS creates a backend named 's3' - we reference it here.
-// Note: Initialize $wgLocalFileRepo as an array first, then configure it.
+// Extension:AWS will automatically configure $wgLocalFileRepo via its MediaWikiServices hook.
+// We set basic required keys here, and Extension:AWS will add the backend configuration.
 if ( !isset( $wgLocalFileRepo ) || !is_array( $wgLocalFileRepo ) ) {
     $wgLocalFileRepo = [];
 }
 
-// REQUIRED keys for MediaWiki's automatic backend creation
-$wgLocalFileRepo['backend'] = 's3'; // Extension:AWS creates a backend named 's3'
+// REQUIRED keys for MediaWiki's file repository
+// Extension:AWS will set 'backend' automatically via its hook
 $wgLocalFileRepo['name'] = 'local'; // Repository name
 $wgLocalFileRepo['directory'] = "$IP/images"; // Directory path (required by MediaWiki, but actual storage is in GCS)
 
