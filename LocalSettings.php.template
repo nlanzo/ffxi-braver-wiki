@@ -241,47 +241,9 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
         error_log( "Configured zone URLs in \$wgLocalFileRepo - public: {$publicUrl}, thumb: {$thumbUrl}" );
     }
     
-    // CRITICAL: Also set zones on the actual repo instance using reflection
-    // Extension:AWS might have already initialized the repo, so we need to modify it directly
-    try {
-        $repoGroup = $services->getRepoGroup();
-        if ( $repoGroup ) {
-            $localRepo = $repoGroup->getLocalRepo();
-            if ( $localRepo ) {
-                // Use reflection to set zones property directly
-                $reflection = new \ReflectionClass( $localRepo );
-                
-                // Set zones property if it exists
-                if ( $reflection->hasProperty( 'zones' ) ) {
-                    $zonesProperty = $reflection->getProperty( 'zones' );
-                    $zonesProperty->setAccessible( true );
-                    $zones = $zonesProperty->getValue( $localRepo ) ?? [];
-                    
-                    // Override zones with our URLs
-                    $zones['public'] = [ 'url' => $publicUrl ];
-                    $zones['thumb'] = [ 'url' => $thumbUrl ];
-                    
-                    $zonesProperty->setValue( $localRepo, $zones );
-                    error_log( "Set zones on LocalRepo instance via reflection - public: {$publicUrl}, thumb: {$thumbUrl}" );
-                }
-                
-                // Also set url and thumbUrl properties directly
-                if ( $reflection->hasProperty( 'url' ) ) {
-                    $urlProperty = $reflection->getProperty( 'url' );
-                    $urlProperty->setAccessible( true );
-                    $urlProperty->setValue( $localRepo, $publicUrl );
-                }
-                
-                if ( $reflection->hasProperty( 'thumbUrl' ) ) {
-                    $thumbUrlProperty = $reflection->getProperty( 'thumbUrl' );
-                    $thumbUrlProperty->setAccessible( true );
-                    $thumbUrlProperty->setValue( $localRepo, $thumbUrl );
-                }
-            }
-        }
-    } catch ( \Exception $e ) {
-        error_log( "Could not set zones on repo instance: " . $e->getMessage() );
-    }
+    // Note: We configure zones in $wgLocalFileRepo above, which MediaWiki will use
+    // Extension:AWS should respect this configuration when it initializes the repo
+    // If Extension:AWS overrides it, we may need to patch Extension:AWS or use a different approach
 };
 
 // IMPORTANT: Your GCS bucket should be PUBLICLY READABLE for images.
