@@ -107,10 +107,31 @@ if ( !empty( $wgAWSBucketName ) ) {
     
     $subdir = $wgAWSBucketTopSubdirectory ?? '';
     $publicUrl = "https://{$wgAWSBucketDomain}/{$wgAWSBucketName}{$subdir}";
-    $wgFileBackends['s3']['publicUrl'] = $publicUrl;
+    $thumbUrl = "https://{$wgAWSBucketDomain}/{$wgAWSBucketName}{$subdir}/thumb";
+    
     // Set container name to bucket name for path-style endpoints
     $wgFileBackends['s3']['container'] = $wgAWSBucketName;
-    error_log( "Pre-configured backend - name: s3, publicUrl: " . $publicUrl );
+    
+    // CRITICAL: Configure container paths with URLs that include bucket name
+    // Extension:AWS uses these container paths to generate image URLs
+    // For path-style endpoints, we must explicitly set URLs with bucket name in path
+    $wgFileBackends['s3']['containerPaths'] = [
+        'public' => [
+            'container' => $wgAWSBucketName,
+            'directory' => ltrim( $subdir, '/' ), // Remove leading slash for directory
+            'url' => $publicUrl // Full URL with bucket name
+        ],
+        'thumb' => [
+            'container' => $wgAWSBucketName,
+            'directory' => ltrim( $subdir, '/' ) . '/thumb',
+            'url' => $thumbUrl // Full URL with bucket name
+        ]
+    ];
+    
+    // Also set publicUrl for backward compatibility
+    $wgFileBackends['s3']['publicUrl'] = $publicUrl;
+    
+    error_log( "Pre-configured backend - name: s3, container: {$wgAWSBucketName}, publicUrl: {$publicUrl}" );
 }
 
 // Configure $wgLocalFileRepo BEFORE Extension:AWS loads
@@ -162,7 +183,7 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
     }
     
     // CRITICAL: Also set zone URLs on the backend configuration
-    // Extension:AWS uses backend zone URLs to generate image URLs
+    // Extension:AWS uses backend container paths to generate image URLs
     // For path-style endpoints, we need to ensure these include the bucket name
     if ( isset( $wgFileBackends['s3'] ) && is_array( $wgFileBackends['s3'] ) ) {
         // Ensure backend has a name (required by MediaWiki)
@@ -175,17 +196,27 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
             $wgFileBackends['s3']['container'] = $wgAWSBucketName;
         }
         
-        // Set public zone URL to include bucket name in path
-        // Extension:AWS will use this when generating image URLs
+        // CRITICAL: Configure container paths with URLs that include bucket name
+        // Extension:AWS uses these to generate image URLs, so they must include bucket name
+        $thumbUrl = "https://{$domain}/{$wgAWSBucketName}{$subdir}/thumb";
+        
+        $wgFileBackends['s3']['containerPaths'] = [
+            'public' => [
+                'container' => $wgAWSBucketName,
+                'directory' => ltrim( $subdir, '/' ),
+                'url' => $publicUrl // Full URL with bucket name in path
+            ],
+            'thumb' => [
+                'container' => $wgAWSBucketName,
+                'directory' => ltrim( $subdir, '/' ) . '/thumb',
+                'url' => $thumbUrl // Full URL with bucket name in path
+            ]
+        ];
+        
+        // Also set publicUrl for backward compatibility
         $wgFileBackends['s3']['publicUrl'] = $publicUrl;
         
-        // Also configure container paths if they exist
-        if ( isset( $wgFileBackends['s3']['containerPaths'] ) && is_array( $wgFileBackends['s3']['containerPaths'] ) ) {
-            // Ensure public zone uses correct URL with bucket name
-            if ( isset( $wgFileBackends['s3']['containerPaths']['public'] ) ) {
-                $wgFileBackends['s3']['containerPaths']['public']['url'] = $publicUrl;
-            }
-        }
+        error_log( "Configured backend container paths - public: {$publicUrl}, thumb: {$thumbUrl}" );
     }
     
     // Configure zone URLs in $wgLocalFileRepo instead of calling setZoneUrl on instance
