@@ -219,14 +219,11 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
         error_log( "Configured backend container paths - public: {$publicUrl}, thumb: {$thumbUrl}" );
     }
     
-    // Configure zone URLs in $wgLocalFileRepo instead of calling setZoneUrl on instance
-    // This avoids the "Cannot register a backend with no name" error
-    // MediaWiki will use these zone URLs when generating image links
+    // Configure zone URLs in $wgLocalFileRepo
+    // MediaWiki uses these to generate URLs for different file zones
     if ( isset( $wgLocalFileRepo ) && is_array( $wgLocalFileRepo ) ) {
         $thumbUrl = "https://{$domain}/{$wgAWSBucketName}{$subdir}/thumb";
         
-        // Configure zones in $wgLocalFileRepo
-        // MediaWiki uses these to generate URLs for different file zones
         if ( !isset( $wgLocalFileRepo['zones'] ) || !is_array( $wgLocalFileRepo['zones'] ) ) {
             $wgLocalFileRepo['zones'] = [];
         }
@@ -242,6 +239,48 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
         ];
         
         error_log( "Configured zone URLs in \$wgLocalFileRepo - public: {$publicUrl}, thumb: {$thumbUrl}" );
+    }
+    
+    // CRITICAL: Also set zones on the actual repo instance using reflection
+    // Extension:AWS might have already initialized the repo, so we need to modify it directly
+    try {
+        $repoGroup = $services->getRepoGroup();
+        if ( $repoGroup ) {
+            $localRepo = $repoGroup->getLocalRepo();
+            if ( $localRepo ) {
+                // Use reflection to set zones property directly
+                $reflection = new \ReflectionClass( $localRepo );
+                
+                // Set zones property if it exists
+                if ( $reflection->hasProperty( 'zones' ) ) {
+                    $zonesProperty = $reflection->getProperty( 'zones' );
+                    $zonesProperty->setAccessible( true );
+                    $zones = $zonesProperty->getValue( $localRepo ) ?? [];
+                    
+                    // Override zones with our URLs
+                    $zones['public'] = [ 'url' => $publicUrl ];
+                    $zones['thumb'] = [ 'url' => $thumbUrl ];
+                    
+                    $zonesProperty->setValue( $localRepo, $zones );
+                    error_log( "Set zones on LocalRepo instance via reflection - public: {$publicUrl}, thumb: {$thumbUrl}" );
+                }
+                
+                // Also set url and thumbUrl properties directly
+                if ( $reflection->hasProperty( 'url' ) ) {
+                    $urlProperty = $reflection->getProperty( 'url' );
+                    $urlProperty->setAccessible( true );
+                    $urlProperty->setValue( $localRepo, $publicUrl );
+                }
+                
+                if ( $reflection->hasProperty( 'thumbUrl' ) ) {
+                    $thumbUrlProperty = $reflection->getProperty( 'thumbUrl' );
+                    $thumbUrlProperty->setAccessible( true );
+                    $thumbUrlProperty->setValue( $localRepo, $thumbUrl );
+                }
+            }
+        }
+    } catch ( \Exception $e ) {
+        error_log( "Could not set zones on repo instance: " . $e->getMessage() );
     }
 };
 
