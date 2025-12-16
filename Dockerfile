@@ -100,7 +100,7 @@ RUN wget -q https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/
 # Note: Cloud Storage integration is handled via MediaWiki extensions using Cloud Storage API
 # Cloud Run doesn't support FUSE, so gcsfuse is not used
 # Install MediaWiki extensions like ExternalStorage with GCS backend for Cloud Storage integration
-RUN cd extensions/ && \
+RUN cd /var/www/html/extensions/ && \
     git clone --depth 1 https://gerrit.wikimedia.org/r/mediawiki/extensions/AWS && \
     cd AWS && \
     composer install --no-dev
