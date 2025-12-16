@@ -66,45 +66,37 @@ $wgUpgradeKey = $_ENV['WIKI_UPGRADE_KEY'] ?? 'your-upgrade-key-change-this';
 # See: https://www.mediawiki.org/wiki/Extension:AWS
 wfLoadExtension( 'AWS' );
 
+// Configure AWS credentials for GCS (using HMAC keys from GCS Interoperability)
 $wgAWSCredentials = [
     'key' => $_ENV['GCS_ACCESS_KEY'] ?? '',
     'secret' => $_ENV['GCS_SECRET_KEY'] ?? '',
     'token' => false
 ];
 
-$wgAWSRegion = 'auto'; // GCS handles region automatically
+// GCS uses 'auto' for region, or you can specify 'us-central1', etc.
+$wgAWSRegion = 'auto';
+
+// Your GCS bucket name
 $wgAWSBucketName = $_ENV['GCS_BUCKET_NAME'] ?? '';
+
+// GCS endpoint domain (defaults to storage.googleapis.com)
 $wgAWSBucketDomain = $_ENV['GCS_BUCKET_DOMAIN'] ?? 'storage.googleapis.com';
 
-// Enable GCS/S3 Storage
-$wgFileBackends['s3'] = [
-    'class' => 'AmazonS3FileBackend',
-    'name' => 's3',
-    'wikiId' => $wgDBname,
-    'lockManager' => 'nullLockManager',
-    'containerPaths' => [
-        "$wgDBname-local-public" => "{$wgAWSBucketName}",
-        "$wgDBname-local-thumb" => "{$wgAWSBucketName}/thumb"
-    ],
-    'endpoint' => 'https://storage.googleapis.com'
-];
+// IMPORTANT: Keep your GCS bucket PRIVATE for security.
+// LocalSettings.php should NOT be in the bucket - it's generated from the template
+// during deployment and stored in the container filesystem only.
+// If you see LocalSettings.php in your bucket, DELETE IT immediately for security!
 
-// Configure the local repository to use the S3 backend
-$wgLocalFileRepo = [
-    'class' => 'LocalRepo',
-    'name' => 'local',
-    'backend' => 's3',
-    'scriptDirUrl' => $wgScriptPath,
-    'url' => $wgScriptPath . '/img_auth.php', // Pass through img_auth.php for permissions if needed, or public URL
-    'hashLevels' => 2,
-    'thumbScriptUrl' => $wgScriptPath . '/thumb.php',
-    'transformVia404' => true,
-    'initialCapital' => true,
-    'deletedHashLevels' => 3,
-];
-
-// Direct public URL access (optional, if bucket is public)
-// $wgLocalFileRepo['url'] = "https://{$wgAWSBucketDomain}/{$wgAWSBucketName}";
+// Configure MediaWiki to serve images through PHP (img_auth.php) instead of direct GCS URLs.
+// This keeps the bucket private while still allowing image display.
+// The Extension:AWS will automatically configure the file backend to read from GCS.
+// Note: This configuration must come AFTER wfLoadExtension('AWS') so it doesn't get overridden.
+$wgLocalFileRepo['scriptDirUrl'] = $wgScriptPath;
+$wgLocalFileRepo['url'] = $wgScriptPath . '/img_auth.php';
+$wgLocalFileRepo['hashLevels'] = 2;
+$wgLocalFileRepo['thumbScriptUrl'] = $wgScriptPath . '/thumb.php';
+$wgLocalFileRepo['transformVia404'] = true;
+$wgLocalFileRepo['initialCapital'] = true;
 
 # Old Upload Config (disabled in favor of AWS/GCS)
 # $wgUploadDirectory = "$IP/images";

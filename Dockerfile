@@ -50,9 +50,19 @@ RUN sed -i 's/ENGINE = MyISAM/ENGINE = InnoDB/g' /var/www/html/sql/mysql/tables-
 # We install this in the builder stage so it's included in the COPY later
 RUN cd extensions/ && \
     git clone --depth 1 https://github.com/edwardspec/mediawiki-aws-s3.git AWS && \
-    # Install AWS SDK for PHP as it is a requirement for the AWS extension
     cd ../ && \
-    composer require aws/aws-sdk-php && \
+    # Create composer.local.json to merge extension dependencies (per Extension:AWS docs)
+    echo '{' > composer.local.json && \
+    echo '  "extra": {' >> composer.local.json && \
+    echo '    "merge-plugin": {' >> composer.local.json && \
+    echo '      "include": [' >> composer.local.json && \
+    echo '        "extensions/AWS/composer.json"' >> composer.local.json && \
+    echo '      ]' >> composer.local.json && \
+    echo '    }' >> composer.local.json && \
+    echo '  }' >> composer.local.json && \
+    echo '}' >> composer.local.json && \
+    # Run composer update to download dependencies (including AWS SDK)
+    composer update --no-dev --optimize-autoloader --no-interaction && \
     # Debug: Check if extension exists
     ls -la extensions/AWS
 
