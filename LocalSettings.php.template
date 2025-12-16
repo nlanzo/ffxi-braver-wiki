@@ -87,16 +87,15 @@ wfLoadExtension( 'AWS' );
 
 // CRITICAL: Use hook to modify S3Client endpoint to use GCS instead of AWS S3
 // Extension:AWS creates the backend automatically, but we need to change the endpoint
-// Note: Temporarily disabled to debug 502 errors - will re-enable after confirming basic functionality
-/*
 $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $services ) {
     global $wgAWSBucketDomain;
     
+    // Skip if GCS domain not configured
+    if ( empty( $wgAWSBucketDomain ) ) {
+        return;
+    }
+    
     try {
-        if ( !isset( $wgAWSBucketDomain ) || empty( $wgAWSBucketDomain ) ) {
-            return; // Skip if not configured
-        }
-        
         $backendGroup = $services->getFileBackendGroup();
         if ( !$backendGroup ) {
             return;
@@ -121,37 +120,59 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
                     $reflection = new \ReflectionClass( $backend );
                     $properties = $reflection->getProperties();
                     
+                    $foundS3Client = false;
                     foreach ( $properties as $property ) {
-                        $property->setAccessible( true );
-                        $value = $property->getValue( $backend );
-                        
-                        if ( $value instanceof \Aws\S3\S3Client ) {
-                            // Get current config and modify for GCS
-                            $config = $value->getConfig()->toArray();
-                            $config['endpoint'] = "https://{$wgAWSBucketDomain}";
-                            $config['use_path_style_endpoint'] = true;
-                            $config['region'] = 'auto';
+                        try {
+                            $property->setAccessible( true );
+                            $value = $property->getValue( $backend );
                             
-                            // Create new S3Client with GCS endpoint
-                            $newClient = new \Aws\S3\S3Client( $config );
-                            $property->setValue( $backend, $newClient );
-                            
-                            error_log( "GCS endpoint configured successfully for backend: {$backendName}" );
-                            break;
+                            // Check if this property contains an S3Client
+                            if ( $value instanceof \Aws\S3\S3Client ) {
+                                $foundS3Client = true;
+                                
+                                // Get current config
+                                $config = $value->getConfig()->toArray();
+                                
+                                // Log current endpoint for debugging
+                                $currentEndpoint = $config['endpoint'] ?? 'default AWS endpoint';
+                                error_log( "Found S3Client in backend {$backendName}, current endpoint: {$currentEndpoint}" );
+                                
+                                // Override with GCS endpoint configuration
+                                $config['endpoint'] = "https://{$wgAWSBucketDomain}";
+                                $config['use_path_style_endpoint'] = true;
+                                $config['region'] = 'auto';
+                                
+                                // Create new S3Client with GCS endpoint
+                                $newClient = new \Aws\S3\S3Client( $config );
+                                $property->setValue( $backend, $newClient );
+                                
+                                error_log( "GCS endpoint configured: https://{$wgAWSBucketDomain} for backend: {$backendName}" );
+                                break; // Found and updated S3Client, move to next backend
+                            }
+                        } catch ( \Exception $e ) {
+                            // Skip this property if we can't access it
+                            continue;
                         }
                     }
+                    
+                    if ( !$foundS3Client ) {
+                        // Log property names for debugging
+                        $propertyNames = array_map( function( $p ) { return $p->getName(); }, $properties );
+                        error_log( "S3Client not found in backend {$backendName}. Properties: " . implode( ', ', $propertyNames ) );
+                    }
                 } catch ( \ReflectionException $e ) {
+                    // Skip this backend if reflection fails
                     error_log( "Reflection error for backend {$backendName}: " . $e->getMessage() );
                     continue;
                 }
             }
         }
-    } catch ( \Exception $e ) {
-        error_log( "GCS endpoint configuration failed: " . $e->getMessage() );
-        // Don't throw - allow MediaWiki to continue loading
+    } catch ( \Throwable $e ) {
+        // Catch any errors and log but don't crash MediaWiki
+        error_log( "GCS endpoint configuration error: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine() );
+        // Don't re-throw - allow MediaWiki to continue
     }
 };
-*/
 
 // IMPORTANT: Keep your GCS bucket PRIVATE for security.
 // LocalSettings.php should NOT be in the bucket - it's generated from the template
