@@ -87,6 +87,7 @@ wfLoadExtension( 'AWS' );
 
 // CRITICAL: Use hook to modify S3Client endpoint to use GCS instead of AWS S3
 // Extension:AWS creates the backend automatically, but we need to change the endpoint
+// Hook runs when MediaWiki services are initialized
 $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $services ) {
     global $wgAWSBucketDomain;
     
@@ -101,71 +102,66 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
             return;
         }
         
-        $backends = $backendGroup->getBackends();
-        if ( !is_array( $backends ) || empty( $backends ) ) {
+        // Try to get the 's3' backend (Extension:AWS creates this)
+        // Note: Backend might be lazy-loaded, so we trigger it by calling get()
+        try {
+            $backend = $backendGroup->get( 's3' );
+        } catch ( \InvalidArgumentException $e ) {
+            // Backend 's3' doesn't exist yet or has different name
+            error_log( "Backend 's3' not found: " . $e->getMessage() );
             return;
         }
         
-        foreach ( $backends as $backendName => $backend ) {
-            if ( !is_object( $backend ) ) {
+        if ( !is_object( $backend ) ) {
+            return;
+        }
+        
+        $backendClass = get_class( $backend );
+        // Check if this is an AmazonS3FileBackend from Extension:AWS
+        if ( strpos( $backendClass, 'AmazonS3' ) === false && 
+             strpos( $backendClass, 'AWS' ) === false ) {
+            error_log( "Backend 's3' is not an AWS backend, it's: {$backendClass}" );
+            return;
+        }
+        
+        // Use reflection to find and modify the S3Client
+        $reflection = new \ReflectionClass( $backend );
+        $properties = $reflection->getProperties();
+        
+        $foundS3Client = false;
+        foreach ( $properties as $property ) {
+            try {
+                $property->setAccessible( true );
+                $value = $property->getValue( $backend );
+                
+                // Check if this property contains an S3Client
+                if ( $value instanceof \Aws\S3\S3Client ) {
+                    $foundS3Client = true;
+                    
+                    // Get current config
+                    $config = $value->getConfig()->toArray();
+                    
+                    // Override with GCS endpoint configuration
+                    $config['endpoint'] = "https://{$wgAWSBucketDomain}";
+                    $config['use_path_style_endpoint'] = true;
+                    $config['region'] = 'auto';
+                    
+                    // Create new S3Client with GCS endpoint
+                    $newClient = new \Aws\S3\S3Client( $config );
+                    $property->setValue( $backend, $newClient );
+                    
+                    error_log( "GCS endpoint configured: https://{$wgAWSBucketDomain} for backend: s3" );
+                    break; // Found and updated S3Client
+                }
+            } catch ( \Exception $e ) {
+                // Skip this property if we can't access it
                 continue;
             }
-            
-            $backendClass = get_class( $backend );
-            // Check if this is an AmazonS3FileBackend from Extension:AWS
-            if ( strpos( $backendClass, 'AmazonS3' ) !== false || 
-                 strpos( $backendClass, 'AWS' ) !== false ) {
-                
-                try {
-                    $reflection = new \ReflectionClass( $backend );
-                    $properties = $reflection->getProperties();
-                    
-                    $foundS3Client = false;
-                    foreach ( $properties as $property ) {
-                        try {
-                            $property->setAccessible( true );
-                            $value = $property->getValue( $backend );
-                            
-                            // Check if this property contains an S3Client
-                            if ( $value instanceof \Aws\S3\S3Client ) {
-                                $foundS3Client = true;
-                                
-                                // Get current config
-                                $config = $value->getConfig()->toArray();
-                                
-                                // Log current endpoint for debugging
-                                $currentEndpoint = $config['endpoint'] ?? 'default AWS endpoint';
-                                error_log( "Found S3Client in backend {$backendName}, current endpoint: {$currentEndpoint}" );
-                                
-                                // Override with GCS endpoint configuration
-                                $config['endpoint'] = "https://{$wgAWSBucketDomain}";
-                                $config['use_path_style_endpoint'] = true;
-                                $config['region'] = 'auto';
-                                
-                                // Create new S3Client with GCS endpoint
-                                $newClient = new \Aws\S3\S3Client( $config );
-                                $property->setValue( $backend, $newClient );
-                                
-                                error_log( "GCS endpoint configured: https://{$wgAWSBucketDomain} for backend: {$backendName}" );
-                                break; // Found and updated S3Client, move to next backend
-                            }
-                        } catch ( \Exception $e ) {
-                            // Skip this property if we can't access it
-                            continue;
-                        }
-                    }
-                    
-                    if ( !$foundS3Client ) {
-                        // Log property names for debugging
-                        $propertyNames = array_map( function( $p ) { return $p->getName(); }, $properties );
-                        error_log( "S3Client not found in backend {$backendName}. Properties: " . implode( ', ', $propertyNames ) );
-                    }
-                } catch ( \ReflectionException $e ) {
-                    // Skip this backend if reflection fails
-                    error_log( "Reflection error for backend {$backendName}: " . $e->getMessage() );
-                    continue;
-                }
-            }
+        }
+        
+        if ( !$foundS3Client ) {
+            $propertyNames = array_map( function( $p ) { return $p->getName(); }, $properties );
+            error_log( "S3Client not found in backend 's3'. Properties: " . implode( ', ', $propertyNames ) );
         }
     } catch ( \Throwable $e ) {
         // Catch any errors and log but don't crash MediaWiki
