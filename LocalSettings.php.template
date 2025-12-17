@@ -357,6 +357,10 @@ wfLoadSkin( 'Vector' );
 # Permissions - restrict edits to logged-in users only
 $wgGroupPermissions["*"]["edit"] = false;
 
+# Hide real name field from registration and user preferences
+# This prevents users from entering their real names
+$wgHiddenPrefs[] = 'realname';
+
 # Load extensions
 wfLoadExtension( 'VisualEditor' );
 
