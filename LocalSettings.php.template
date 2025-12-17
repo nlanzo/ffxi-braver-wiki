@@ -294,6 +294,13 @@ $wgEnableAPI = true;
 $wgEnableWriteAPI = true;
 $wgCrossSiteAJAXdomains = ['*'];
 
+# Security headers to prevent clickjacking and XSS
+# Break out of framesets to prevent clickjacking attacks
+$wgBreakFrames = true;
+# X-Frame-Options header (already DENY by default for edit pages)
+$wgEditPageFrameOptions = 'DENY';
+$wgApiFrameOptions = 'DENY';
+
 # Email settings - REQUIRED for email confirmation
 $wgEnableEmail = true;
 $wgEnableUserEmail = true; # UPO

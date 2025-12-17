@@ -85,3 +85,6 @@ FFXI Braver Info*
 nm_table_generated.txt
 *generated.txt
 csv_to*
+secure-cloud-sql.sh
+SECURITY.md
+SAFE_BROWSING.md

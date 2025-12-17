@@ -201,6 +201,11 @@ RUN { \
     echo '    location /images/ {'; \
     echo '      add_header X-Content-Type-Options "nosniff" always;'; \
     echo '    }'; \
+    echo '    # Security headers for all pages'; \
+    echo '    add_header X-Frame-Options "DENY" always;'; \
+    echo '    add_header X-Content-Type-Options "nosniff" always;'; \
+    echo '    add_header X-XSS-Protection "1; mode=block" always;'; \
+    echo '    add_header Referrer-Policy "strict-origin-when-cross-origin" always;'; \
     echo '    location / {'; \
     echo '      try_files $uri $uri/ @mediawiki;'; \
     echo '    }'; \
