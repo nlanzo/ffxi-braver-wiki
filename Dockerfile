@@ -161,10 +161,13 @@ RUN rm -f /usr/local/etc/php-fpm.d/www.conf.default /usr/local/etc/php-fpm.d/zz-
     echo 'user = www-data'; \
     echo 'group = www-data'; \
     echo 'pm = dynamic'; \
-    echo 'pm.max_children = 10'; \
-    echo 'pm.start_servers = 2'; \
+    echo 'pm.max_children = 5'; \
+    echo 'pm.start_servers = 1'; \
     echo 'pm.min_spare_servers = 1'; \
-    echo 'pm.max_spare_servers = 3'; \
+    echo 'pm.max_spare_servers = 2'; \
+    echo 'pm.max_requests = 500'; \
+    echo 'pm.process_idle_timeout = 60s'; \
+    echo 'pm.max_request_uri_length = 0'; \
     echo 'catch_workers_output = yes'; \
     echo 'php_admin_value[error_log] = /proc/self/fd/2'; \
     echo 'php_admin_flag[log_errors] = on'; \
