@@ -166,8 +166,6 @@ RUN rm -f /usr/local/etc/php-fpm.d/www.conf.default /usr/local/etc/php-fpm.d/zz-
     echo 'pm.min_spare_servers = 1'; \
     echo 'pm.max_spare_servers = 2'; \
     echo 'pm.max_requests = 500'; \
-    echo 'pm.process_idle_timeout = 60s'; \
-    echo 'pm.max_request_uri_length = 0'; \
     echo 'catch_workers_output = yes'; \
     echo 'php_admin_value[error_log] = /proc/self/fd/2'; \
     echo 'php_admin_flag[log_errors] = on'; \
