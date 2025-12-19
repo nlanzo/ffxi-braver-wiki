@@ -218,8 +218,15 @@ RUN { \
     echo '      return 200 "OK";'; \
     echo '      add_header Content-Type text/plain;'; \
     echo '    }'; \
+    echo '    # Handle robots.txt case-insensitively (fixes 404 warnings)'; \
+    echo '    # MediaWiki generates robots.txt dynamically via Special:Robots'; \
+    echo '    # Case-insensitive match handles Robots.txt, ROBOTS.TXT, etc.'; \
+    echo '    location ~* ^/robots\.txt$ {'; \
+    echo '      access_log off;'; \
+    echo '      rewrite ^(.*)$ /index.php?title=Special:Robots last;'; \
+    echo '    }'; \
     echo '    # Reduce logging for internal/health check requests'; \
-    echo '    location ~ ^/(health|favicon.ico|robots.txt) {'; \
+    echo '    location ~ ^/(health|favicon.ico) {'; \
     echo '      access_log off;'; \
     echo '    }'; \
     echo '    location / {'; \
