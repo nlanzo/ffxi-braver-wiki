@@ -220,11 +220,7 @@ RUN { \
     echo '      access_log off;'; \
     echo '      rewrite ^(.*)$ /index.php?title=Special:Robots last;'; \
     echo '    }'; \
-    echo '    # Handle rest.php case-insensitively (fixes 404 warnings)'; \
-    echo '    # MediaWiki REST API endpoint'; \
-    echo '    location ~* ^/rest\.php(.*)$ {'; \
-    echo '      rewrite ^/rest\.php(.*)$ /rest.php$1 last;'; \
-    echo '    }'; \
+ \
     echo '    # Reduce logging for internal/health check requests'; \
     echo '    location ~ ^/(health|favicon.ico) {'; \
     echo '      access_log off;'; \
