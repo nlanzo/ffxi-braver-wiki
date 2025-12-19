@@ -86,5 +86,6 @@ nm_table_generated.txt
 *generated.txt
 csv_to*
 secure-cloud-sql.sh
+secure-cloud-sql-complete.sh
 SECURITY.md
 SAFE_BROWSING.md

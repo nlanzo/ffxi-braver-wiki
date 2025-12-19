@@ -133,7 +133,8 @@ if ( !empty( $wgAWSBucketName ) ) {
     // Also set publicUrl for backward compatibility
     $wgFileBackends['s3']['publicUrl'] = $publicUrl;
     
-    error_log( "Pre-configured backend - name: s3, container: {$wgAWSBucketName}, publicUrl: {$publicUrl}" );
+    // Debug logging removed - uncomment for troubleshooting if needed
+    // error_log( "Pre-configured backend - name: s3, container: {$wgAWSBucketName}, publicUrl: {$publicUrl}" );
 }
 
 // Configure $wgLocalFileRepo BEFORE Extension:AWS loads
@@ -157,7 +158,8 @@ if ( !empty( $wgAWSBucketName ) ) {
     // Use base domain for manual URL construction
     $publicUrl = "https://{$gcsDomain}/{$wgAWSBucketName}{$subdir}";
     $wgLocalFileRepo['url'] = $publicUrl;
-    error_log( "Pre-configured \$wgLocalFileRepo['url'] to: " . $publicUrl );
+    // Debug logging removed - uncomment for troubleshooting if needed
+    // error_log( "Pre-configured \$wgLocalFileRepo['url'] to: " . $publicUrl );
 }
 
 // Load Extension:AWS - it will use the endpoint configuration above
@@ -220,7 +222,8 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
         // Also set publicUrl for backward compatibility
         $wgFileBackends['s3']['publicUrl'] = $publicUrl;
         
-        error_log( "Configured backend container paths - public: {$publicUrl}, thumb: {$thumbUrl}" );
+        // Debug logging removed - uncomment for troubleshooting if needed
+        // error_log( "Configured backend container paths - public: {$publicUrl}, thumb: {$thumbUrl}" );
     }
     
     // Configure zone URLs in $wgLocalFileRepo
@@ -242,7 +245,8 @@ $wgHooks['MediaWikiServices'][] = function( \MediaWiki\MediaWikiServices $servic
             'url' => $thumbUrl
         ];
         
-        error_log( "Configured zone URLs in \$wgLocalFileRepo - public: {$publicUrl}, thumb: {$thumbUrl}" );
+        // Debug logging removed - uncomment for troubleshooting if needed
+        // error_log( "Configured zone URLs in \$wgLocalFileRepo - public: {$publicUrl}, thumb: {$thumbUrl}" );
     }
     
     // Note: We configure zones in $wgLocalFileRepo above, which MediaWiki will use
