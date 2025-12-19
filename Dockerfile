@@ -181,13 +181,7 @@ RUN { \
     echo '  include /etc/nginx/mime.types;'; \
     echo '  default_type application/octet-stream;'; \
     echo '  log_format main '"'"'$remote_addr - $remote_user [$time_local] "$request" '"'"' '"'"'$status $body_bytes_sent "$http_referer" '"'"' '"'"'"$http_user_agent" "$http_x_forwarded_for"'"'"';'; \
-    echo '  # Map to exclude internal requests from logging'; \
-    echo '  map $remote_addr $loggable {'; \
-    echo '    ~^169\.254\. ~ 0;  # Google Cloud internal IPs'; \
-    echo '    ~^127\.0\.0\. ~ 0;  # localhost'; \
-    echo '    default 1;'; \
-    echo '  }'; \
-    echo '  access_log /proc/self/fd/1 main if=$loggable;'; \
+    echo '  access_log /proc/self/fd/1 main;'; \
     echo '  sendfile on;'; \
     echo '  keepalive_timeout 65;'; \
     echo '  client_max_body_size 20M;'; \
