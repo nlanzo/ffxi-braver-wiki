@@ -367,6 +367,7 @@ $wgHiddenPrefs[] = 'realname';
 
 # Load extensions
 wfLoadExtension( 'VisualEditor' );
+wfLoadExtension( 'TableTools' );
 
 # ExternalStorage Configuration (Optional)
 # ExternalStorage stores old revision text externally to reduce database size
