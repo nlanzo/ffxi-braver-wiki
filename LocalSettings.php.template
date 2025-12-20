@@ -367,6 +367,8 @@ $wgHiddenPrefs[] = 'realname';
 
 # Load extensions
 wfLoadExtension( 'VisualEditor' );
+# TableTools requires VueJsPlus as a dependency
+wfLoadExtension( 'VueJsPlus' );
 wfLoadExtension( 'TableTools' );
 
 # ExternalStorage Configuration (Optional)
