@@ -345,6 +345,12 @@ $wgShowDBErrorBacktrace = true;
 # and cannot be fixed in user code. Setting limit to current version suppresses them.
 $wgDevelopmentWarnings = false;
 $wgDeprecationReleaseLimit = '1.44';
+# Disable debug toolbar to prevent deprecation warnings from displaying on page
+$wgShowDebug = false;
+# Suppress PHP E_USER_DEPRECATED warnings from being displayed on page
+# They will still be logged, but won't appear in the HTML output
+# E_USER_DEPRECATED = 16384
+error_reporting( E_ALL & ~E_USER_DEPRECATED );
 
 # Increase PCRE limits for large page parsing
 ini_set( 'pcre.backtrack_limit', '2000000' );
@@ -359,10 +365,13 @@ $wgLocalStylePath = "$wgResourceBasePath/skins";
 $wgDefaultSkin = 'vector-2022';
 
 # Enabled skins (add more as needed)
-wfLoadSkin( 'MinervaNeue' );
-wfLoadSkin( 'MonoBook' );
-wfLoadSkin( 'Timeless' );
 wfLoadSkin( 'Vector' );
+
+# Skin Config
+$wgDefaultUserOptions['vector-main-menu-pinned'] = 1;
+$wgDefaultUserOptions['vector-page-tools-pinned'] = 0;
+$wgDefaultUserOptions['vector-toc-pinned'] = 0;
+$wgDefaultUserOptions['vector-appearance-pinned'] = 0;
 
 # Permissions - restrict edits to logged-in users only
 $wgGroupPermissions["*"]["edit"] = false;
