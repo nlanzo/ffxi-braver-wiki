@@ -42,7 +42,7 @@ $wgMetaNamespace = str_replace(' ', '_', $wgSitename);
 # You can set this via environment variable WIKI_LOGO_URL
 # Example: https://storage.googleapis.com/your-bucket/logo.png
 $wgLogos = [
-    '1x' => $_ENV['WIKI_LOGO_URL'] ?? '',
+    'icon' => $_ENV['WIKI_LOGO_URL'] ?? '',
 ];
 
 # Favicon
