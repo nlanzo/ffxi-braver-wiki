@@ -340,6 +340,12 @@ $wgShowExceptionDetails = true;
 $wgShowSQLErrors = true;
 $wgShowDBErrorBacktrace = true;
 
+# Suppress deprecation warnings from MediaWiki core
+# These warnings come from MediaWiki core itself (e.g., Skin::appendSpecialPagesLinkIfAbsent)
+# and cannot be fixed in user code. Setting limit to current version suppresses them.
+$wgDevelopmentWarnings = false;
+$wgDeprecationReleaseLimit = '1.44';
+
 # Increase PCRE limits for large page parsing
 ini_set( 'pcre.backtrack_limit', '2000000' );
 ini_set( 'pcre.recursion_limit', '200000' );
@@ -350,7 +356,7 @@ $wgStylePath = "$wgResourceBasePath/skins";
 $wgLocalStylePath = "$wgResourceBasePath/skins";
 
 # Default skin
-$wgDefaultSkin = 'vector';
+$wgDefaultSkin = 'vector-2022';
 
 # Enabled skins (add more as needed)
 wfLoadSkin( 'MinervaNeue' );
