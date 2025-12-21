@@ -422,9 +422,10 @@ $wgHiddenPrefs[] = 'realname';
 
 # Load extensions
 wfLoadExtension( 'VisualEditor' );
-# TableTools requires VueJsPlus as a dependency
-wfLoadExtension( 'VueJsPlus' );
-wfLoadExtension( 'TableTools' );
+# TableTools and VueJsPlus removed due to performance issues
+# VueJsPlus was causing errors during ResourceLoader initialization
+# wfLoadExtension( 'VueJsPlus' );
+# wfLoadExtension( 'TableTools' );
 
 # ExternalStorage Configuration (Optional)
 # ExternalStorage stores old revision text externally to reduce database size

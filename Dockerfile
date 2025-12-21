@@ -50,8 +50,9 @@ RUN sed -i 's/ENGINE = MyISAM/ENGINE = InnoDB/g' /var/www/html/sql/mysql/tables-
 # We install this in the builder stage so it's included in the COPY later
 RUN cd extensions/ && \
     git clone --depth 1 https://github.com/edwardspec/mediawiki-aws-s3.git AWS && \
-    git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-TableTools.git TableTools && \
-    git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-VueJsPlus.git VueJsPlus && \
+    # TableTools and VueJsPlus removed due to performance issues
+    # git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-TableTools.git TableTools && \
+    # git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-VueJsPlus.git VueJsPlus && \
     cd ../ && \
     # Create composer.local.json to merge extension dependencies (per Extension:AWS docs)
     echo '{' > composer.local.json && \
@@ -66,9 +67,7 @@ RUN cd extensions/ && \
     # Run composer update to download dependencies (including AWS SDK)
     composer update --no-dev --optimize-autoloader --no-interaction && \
     # Debug: Check if extensions exist
-    ls -la extensions/AWS && \
-    ls -la extensions/TableTools && \
-    ls -la extensions/VueJsPlus
+    ls -la extensions/AWS
 
 
 # Download AWS SDK for PHP manually and place it where the AWS extension expects it or in a common vendor dir
@@ -306,9 +305,7 @@ RUN mkdir -p /etc/supervisor/conf.d \
 COPY --from=builder --chown=www-data:www-data /var/www/html /var/www/html
 
 # Debug: Check if extensions were copied
-RUN ls -la /var/www/html/extensions/AWS || echo "AWS extension missing in production stage!" && \
-    ls -la /var/www/html/extensions/TableTools || echo "TableTools extension missing in production stage!" && \
-    ls -la /var/www/html/extensions/VueJsPlus || echo "VueJsPlus extension missing in production stage!"
+RUN ls -la /var/www/html/extensions/AWS || echo "AWS extension missing in production stage!"
 
 
 # Create necessary directories with proper permissions
