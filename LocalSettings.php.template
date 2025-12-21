@@ -417,5 +417,14 @@ wfLoadExtension( 'TableTools' );
 # See: https://www.mediawiki.org/wiki/Manual:External_storage#Google_Cloud_Storage
 # This is more complex and typically not needed for most wikis
 
+# Preload collapsible module to avoid delay with mw-collapsible tables
+# This ensures jquery.makeCollapsible is loaded immediately rather than lazily
+$wgHooks['BeforePageDisplay'][] = function( $out, $skin ) {
+	// Always preload collapsible module and styles for faster interaction
+	// The module is lightweight and commonly used, so preloading improves UX
+	$out->addModules( 'jquery.makeCollapsible' );
+	$out->addModuleStyles( 'jquery.makeCollapsible.styles' );
+};
+
 # End of configuration
 
