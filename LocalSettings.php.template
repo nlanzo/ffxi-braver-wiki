@@ -434,72 +434,9 @@ $wgHooks['BeforePageDisplay'][] = function( $out, $skin ) {
 	$out->addModules( 'jquery.makeCollapsible' );
 	$out->addModuleStyles( 'jquery.makeCollapsible.styles' );
 	
-	// Add inline script to make collapsible tables work immediately
-	// This provides instant functionality while ResourceLoader loads in the background
-	$out->addInlineScript( '
-		(function() {
-			// Simple collapsible implementation that works immediately
-			function initCollapsibles() {
-				var collapsibles = document.querySelectorAll( ".mw-collapsible" );
-				collapsibles.forEach( function( elem ) {
-					if ( elem.dataset.collapsibleInitialized ) return;
-					elem.dataset.collapsibleInitialized = "1";
-					
-					var toggle = elem.querySelector( ".mw-collapsible-toggle" );
-					if ( !toggle ) {
-						// Create toggle button if it doesn\'t exist
-						toggle = document.createElement( "span" );
-						toggle.className = "mw-collapsible-toggle mw-collapsible-toggle-default";
-						toggle.innerHTML = "<span class=\"mw-collapsible-text\">[collapse]</span>";
-						var firstChild = elem.firstChild;
-						if ( firstChild ) {
-							elem.insertBefore( toggle, firstChild );
-						} else {
-							elem.appendChild( toggle );
-						}
-					}
-					
-					var content = elem.querySelector( ".mw-collapsible-content" ) || elem;
-					var isCollapsed = elem.classList.contains( "mw-collapsed" );
-					
-					if ( isCollapsed ) {
-						content.style.display = "none";
-					}
-					
-					toggle.addEventListener( "click", function( e ) {
-						e.preventDefault();
-						isCollapsed = !isCollapsed;
-						if ( isCollapsed ) {
-							content.style.display = "none";
-							elem.classList.add( "mw-collapsed" );
-							toggle.querySelector( ".mw-collapsible-text" ).textContent = "[expand]";
-						} else {
-							content.style.display = "";
-							elem.classList.remove( "mw-collapsed" );
-							toggle.querySelector( ".mw-collapsible-text" ).textContent = "[collapse]";
-						}
-					} );
-				} );
-			}
-			
-			// Initialize immediately
-			if ( document.readyState === "loading" ) {
-				document.addEventListener( "DOMContentLoaded", initCollapsibles );
-			} else {
-				initCollapsibles();
-			}
-			
-			// Re-initialize after ResourceLoader loads (in case it adds more elements)
-			if ( window.mw && window.mw.loader ) {
-				window.mw.loader.using( [ "jquery.makeCollapsible" ] ).then( function() {
-					// Let the full implementation take over
-					if ( window.jQuery && window.jQuery.fn.makeCollapsible ) {
-						window.jQuery( ".mw-collapsible" ).makeCollapsible();
-					}
-				} );
-			}
-		})();
-	' );
+	// Debug: Log modules to verify they're being added
+	// Check browser console or view page source for RLPAGEMODULES variable
+	// You can also check: window.mw.loader.getModuleNames() in browser console
 };
 
 # End of configuration
