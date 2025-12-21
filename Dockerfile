@@ -118,8 +118,6 @@ RUN apk add --no-cache \
     autoconf \
     g++ \
     make \
-    && apk add --no-cache --virtual .redis-deps \
-    redis-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
     calendar \
@@ -135,7 +133,7 @@ RUN apk add --no-cache \
     bcmath \
     && pecl install redis \
     && docker-php-ext-enable redis \
-    && apk del .build-deps .redis-deps \
+    && apk del .build-deps \
     && rm -rf /var/cache/apk/*
 
 # Install Cloud SQL Proxy for Cloud SQL connections
