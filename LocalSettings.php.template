@@ -338,10 +338,8 @@ $wgSidebarCacheExpiry = 86400; # 24 hours
 # Localisation cache: Use file-based cache instead of database
 # Per docs: "Ensure $wgCacheDirectory in LocalSettings.php is set to a valid path to use a local caching instead"
 # This reduces database queries for interface messages
-$wgLocalisationCacheConf = [
-    'store' => 'files', # Use files instead of database
-    'storeDirectory' => "$wgCacheDirectory/l10n", # Store in cache directory
-];
+# MediaWiki will automatically detect and use 'files' store when $wgCacheDirectory is set
+# No need to explicitly configure $wgLocalisationCacheConf - auto-detection works perfectly
 
 # Performance settings for Cloud Run
 $wgUseImageMagick = false;
