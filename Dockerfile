@@ -115,6 +115,11 @@ RUN apk add --no-cache \
     icu-dev \
     oniguruma-dev \
     postgresql-dev \
+    autoconf \
+    g++ \
+    make \
+    && apk add --no-cache --virtual .redis-deps \
+    redis-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
     calendar \
@@ -128,7 +133,9 @@ RUN apk add --no-cache \
     mbstring \
     opcache \
     bcmath \
-    && apk del .build-deps \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del .build-deps .redis-deps \
     && rm -rf /var/cache/apk/*
 
 # Install Cloud SQL Proxy for Cloud SQL connections

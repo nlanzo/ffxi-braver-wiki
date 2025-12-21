@@ -279,20 +279,45 @@ $wgTmpDirectory = sys_get_temp_dir();
 $wgEnableUploads = true;
 
 # Cache settings (use Redis or Memcached if available)
+# According to MediaWiki performance tuning docs:
+# https://www.mediawiki.org/wiki/Manual:Performance_tuning
+# Redis is recommended for main cache when available
 if (isset($_ENV['REDIS_HOST'])) {
+    # Configure Redis cache backend
+    # RedisBagOStuff requires php-redis PECL extension (installed in Dockerfile)
     $wgObjectCaches['redis'] = [
         'class' => 'RedisBagOStuff',
         'servers' => [$_ENV['REDIS_HOST'] . ':' . ($_ENV['REDIS_PORT'] ?? 6379)],
+        # Connection timeout in seconds
+        'connectTimeout' => 1,
+        # Read timeout in seconds
+        'readTimeout' => 1,
+        # Persistent connection (reuse connections across requests)
+        'persistent' => true,
     ];
+    
+    # Use Redis for main cache (parser output, etc.)
     $wgMainCacheType = 'redis';
+    # Use Redis for session storage
     $wgSessionCacheType = 'redis';
     # Use Redis for MainStash (used by ResourceLoader DependencyStore)
     # This significantly improves ResourceLoader startup performance
+    # MainStash stores module dependencies and is critical for fast ResourceLoader
     $wgMainStash = 'redis';
     # Also use Redis for other caches to improve performance
     $wgParserCacheType = 'redis';
     $wgMessageCacheType = 'redis';
     $wgLanguageConverterCacheType = 'redis';
+    
+    error_log( '[Cache] Redis configured: ' . $_ENV['REDIS_HOST'] . ':' . ($_ENV['REDIS_PORT'] ?? 6379) );
+} else {
+    # Fallback: Use database cache if Redis is not available
+    # This is slower but will work
+    error_log( '[Cache] WARNING: Redis not configured, using database cache (slower performance)' );
+    $wgMainCacheType = CACHE_DB;
+    $wgSessionCacheType = CACHE_DB;
+    # MainStash defaults to CACHE_DB if not set, which is slow
+    # We'll log a warning in the MediaWikiServices hook
 }
 
 # Performance settings for Cloud Run
