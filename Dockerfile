@@ -131,8 +131,8 @@ RUN apk add --no-cache \
     mbstring \
     opcache \
     bcmath \
-    && pecl install redis \
-    && docker-php-ext-enable redis \
+    && pecl install apcu \
+    && docker-php-ext-enable apcu \
     && apk del .build-deps \
     && rm -rf /var/cache/apk/*
 

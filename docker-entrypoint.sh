@@ -23,8 +23,9 @@ fi
 chown -R www-data:www-data /var/www/html/images || true
 chmod -R 775 /var/www/html/images || true
 
-# Ensure cache directory exists and is writable
+# Ensure cache directory exists and is writable (for localisation cache, etc.)
 mkdir -p /var/www/html/cache || true
+mkdir -p /var/www/html/cache/l10n || true
 chown -R www-data:www-data /var/www/html/cache || true
 chmod -R 775 /var/www/html/cache || true
 

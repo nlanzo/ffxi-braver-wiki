@@ -278,47 +278,70 @@ $wgTmpDirectory = sys_get_temp_dir();
 # Enable uploads
 $wgEnableUploads = true;
 
-# Cache settings (use Redis or Memcached if available)
-# According to MediaWiki performance tuning docs:
-# https://www.mediawiki.org/wiki/Manual:Performance_tuning
-# Redis is recommended for main cache when available
-if (isset($_ENV['REDIS_HOST'])) {
-    # Configure Redis cache backend
-    # RedisBagOStuff requires php-redis PECL extension (installed in Dockerfile)
-    $wgObjectCaches['redis'] = [
-        'class' => 'RedisBagOStuff',
-        'servers' => [$_ENV['REDIS_HOST'] . ':' . ($_ENV['REDIS_PORT'] ?? 6379)],
-        # Connection timeout in seconds
-        'connectTimeout' => 1,
-        # Read timeout in seconds
-        'readTimeout' => 1,
-        # Persistent connection (reuse connections across requests)
-        'persistent' => true,
-    ];
-    
-    # Use Redis for main cache (parser output, etc.)
-    $wgMainCacheType = 'redis';
-    # Use Redis for session storage
-    $wgSessionCacheType = 'redis';
-    # Use Redis for MainStash (used by ResourceLoader DependencyStore)
-    # This significantly improves ResourceLoader startup performance
-    # MainStash stores module dependencies and is critical for fast ResourceLoader
-    $wgMainStash = 'redis';
-    # Also use Redis for other caches to improve performance
-    $wgParserCacheType = 'redis';
-    $wgMessageCacheType = 'redis';
-    $wgLanguageConverterCacheType = 'redis';
-    
-    error_log( '[Cache] Redis configured: ' . $_ENV['REDIS_HOST'] . ':' . ($_ENV['REDIS_PORT'] ?? 6379) );
-} else {
-    # Fallback: Use database cache if Redis is not available
-    # This is slower but will work
-    error_log( '[Cache] WARNING: Redis not configured, using database cache (slower performance)' );
-    $wgMainCacheType = CACHE_DB;
-    $wgSessionCacheType = CACHE_DB;
-    # MainStash defaults to CACHE_DB if not set, which is slow
-    # We'll log a warning in the MediaWikiServices hook
+# Cache settings - optimized per MediaWiki performance tuning best practices
+# Reference: https://www.mediawiki.org/wiki/Manual:Performance_tuning
+# Using APCu for local cache (free) and database cache for shared storage (free)
+
+# Set cache directory for file-based caching (localisation cache, etc.)
+# This improves performance by using files instead of database for some caches
+$wgCacheDirectory = "$IP/cache";
+# Ensure cache directory exists and is writable
+if ( !is_dir( $wgCacheDirectory ) ) {
+    @mkdir( $wgCacheDirectory, 0755, true );
 }
+
+# Enable APCu for local server cache (free, no external service needed)
+# Per MediaWiki docs: "APCu as local object cache" is recommended
+# APCu uses local server memory and is very fast for single-instance deployments
+if (function_exists('apcu_fetch')) {
+    # Use APCu for main cache (recommended for single web server)
+    # Per docs: "If you have APC installed is strongly recommended to use that"
+    $wgMainCacheType = CACHE_ACCEL;
+    
+    # Parser cache: Use database instead of APCu to avoid RAM pressure
+    # Per docs: "When using APC with limited RAM... consider setting $wgParserCacheType to CACHE_DB"
+    # Cloud Run has limited memory, so move parser cache to database
+    $wgParserCacheType = CACHE_DB;
+    
+    # Message cache: Use APCu (lightweight)
+    $wgMessageCacheType = CACHE_ACCEL;
+    
+    # Language converter cache: Use APCu
+    $wgLanguageConverterCacheType = CACHE_ACCEL;
+    
+    # Session cache: Use APCu (if users get "session hijacking" errors, change to CACHE_DB)
+    $wgSessionCacheType = CACHE_ACCEL;
+    
+    error_log( '[Cache] Using APCu for main cache (per MediaWiki best practices)' );
+} else {
+    # Fallback to database if APCu not available
+    $wgMainCacheType = CACHE_DB;
+    $wgParserCacheType = CACHE_DB;
+    $wgMessageCacheType = CACHE_DB;
+    $wgLanguageConverterCacheType = CACHE_DB;
+    $wgSessionCacheType = CACHE_DB;
+    error_log( '[Cache] APCu not available, using database cache' );
+}
+
+# MainStash uses database cache (free but slower)
+# MainStash is used by ResourceLoader DependencyStore and needs shared storage
+# Database cache is free but causes slower ResourceLoader initialization
+# This is acceptable for small wikis to avoid paying for Redis
+$wgMainStash = CACHE_DB;
+error_log( '[Cache] MainStash using database cache (free, acceptable for small wikis)' );
+
+# Enable sidebar cache (per MediaWiki performance tuning docs)
+# "A small save in DB queries can be obtained by caching the sidebar"
+$wgEnableSidebarCache = true;
+$wgSidebarCacheExpiry = 86400; # 24 hours
+
+# Localisation cache: Use file-based cache instead of database
+# Per docs: "Ensure $wgCacheDirectory in LocalSettings.php is set to a valid path to use a local caching instead"
+# This reduces database queries for interface messages
+$wgLocalisationCacheConf = [
+    'store' => 'files', # Use files instead of database
+    'storeDirectory' => "$wgCacheDirectory/l10n", # Store in cache directory
+];
 
 # Performance settings for Cloud Run
 $wgUseImageMagick = false;
@@ -375,19 +398,19 @@ $wgShowDBErrorBacktrace = true;
 # Log queries that take longer than 1 second
 $wgSlowDBThreshold = 1.0;
 
-# Verify Redis/MainStash is actually being used
-# Log when services are initialized to confirm Redis connectivity
+# Verify MainStash cache backend (for debugging)
+# Log when services are initialized to confirm cache configuration
 $wgHooks['MediaWikiServices'][] = function( $services ) {
 	try {
 		$mainStash = $services->getMainObjectStash();
 		$stashClass = get_class( $mainStash );
 		error_log( '[ResourceLoader] MainStash class: ' . $stashClass );
 		
-		// Check if Redis is actually being used or if it fell back to database
-		if ( strpos( $stashClass, 'Redis' ) === false && strpos( $stashClass, 'Sql' ) !== false ) {
-			error_log( '[ResourceLoader] WARNING: MainStash is using database instead of Redis! This will be slow.' );
-		} elseif ( strpos( $stashClass, 'Redis' ) !== false ) {
-			error_log( '[ResourceLoader] MainStash is using Redis - good!' );
+		// Log which cache backend is being used
+		if ( strpos( $stashClass, 'Sql' ) !== false ) {
+			error_log( '[ResourceLoader] MainStash using database cache (free, acceptable for small wikis)' );
+		} elseif ( strpos( $stashClass, 'APCu' ) !== false ) {
+			error_log( '[ResourceLoader] MainStash using APCu cache' );
 		}
 	} catch ( Exception $e ) {
 		error_log( '[ResourceLoader] ERROR checking MainStash: ' . $e->getMessage() );
