@@ -286,6 +286,13 @@ if (isset($_ENV['REDIS_HOST'])) {
     ];
     $wgMainCacheType = 'redis';
     $wgSessionCacheType = 'redis';
+    # Use Redis for MainStash (used by ResourceLoader DependencyStore)
+    # This significantly improves ResourceLoader startup performance
+    $wgMainStash = 'redis';
+    # Also use Redis for other caches to improve performance
+    $wgParserCacheType = 'redis';
+    $wgMessageCacheType = 'redis';
+    $wgLanguageConverterCacheType = 'redis';
 }
 
 # Performance settings for Cloud Run
@@ -369,6 +376,8 @@ $wgResourceLoaderMaxage = [
 ];
 # Enable ResourceLoader storage for faster client-side module loading
 $wgResourceLoaderStorageEnabled = true;
+# Disable ResourceLoader debug mode in production (can slow down module loading)
+$wgResourceLoaderDebug = false;
 
 # Default skin
 $wgDefaultSkin = 'vector-2022';
@@ -437,6 +446,48 @@ $wgHooks['BeforePageDisplay'][] = function( $out, $skin ) {
 	// Debug: Log modules to verify they're being added
 	// Check browser console or view page source for RLPAGEMODULES variable
 	// You can also check: window.mw.loader.getModuleNames() in browser console
+};
+
+# ResourceLoader performance debugging
+# Track timing to identify bottlenecks in startup module loading
+$wgHooks['ResourceLoaderGetConfigVars'][] = function( &$vars, $skin, $config ) {
+	// Record start time for ResourceLoader initialization
+	$vars['wgResourceLoaderStartTime'] = microtime( true );
+	// Log to error log for server-side debugging
+	error_log( '[ResourceLoader] Config vars requested at: ' . $vars['wgResourceLoaderStartTime'] );
+};
+
+# Hook into ResourceLoader module registration to track timing
+$wgHooks['ResourceLoaderRegisterModules'][] = function( $resourceLoader ) {
+	$startTime = microtime( true );
+	error_log( '[ResourceLoader] Module registration started at: ' . $startTime );
+	$moduleCount = count( $resourceLoader->getModuleNames() );
+	error_log( '[ResourceLoader] Total modules registered: ' . $moduleCount );
+	
+	// Track when modules are registered
+	register_shutdown_function( function() use ( $startTime ) {
+		$endTime = microtime( true );
+		$duration = $endTime - $startTime;
+		error_log( '[ResourceLoader] Module registration completed in: ' . round( $duration, 3 ) . ' seconds' );
+	} );
+};
+
+# Track page generation timing to identify ResourceLoader bottlenecks
+$wgHooks['BeforePageDisplay'][] = function( $out, $skin ) {
+	// Track when ResourceLoader client is being built (includes startup module generation)
+	$rlStartTime = microtime( true );
+	error_log( '[ResourceLoader] BeforePageDisplay hook - starting ResourceLoader client build' );
+	
+	// Use a shutdown function to measure total time after everything completes
+	register_shutdown_function( function() use ( $rlStartTime ) {
+		$rlEndTime = microtime( true );
+		$rlDuration = $rlEndTime - $rlStartTime;
+		error_log( '[ResourceLoader] Total page generation time: ' . round( $rlDuration, 3 ) . ' seconds' );
+		
+		// Log memory usage
+		$memoryUsage = memory_get_peak_usage( true );
+		error_log( '[ResourceLoader] Peak memory usage: ' . round( $memoryUsage / 1024 / 1024, 2 ) . ' MB' );
+	} );
 };
 
 # End of configuration
