@@ -346,6 +346,9 @@ $wgDebugLogFile = '/dev/stderr';
 $wgShowExceptionDetails = true;
 $wgShowSQLErrors = true;
 $wgShowDBErrorBacktrace = true;
+# Enable slow query logging to identify database bottlenecks
+# Log queries that take longer than 1 second
+$wgSlowDBThreshold = 1.0;
 
 # Suppress deprecation warnings from MediaWiki core
 # These warnings come from MediaWiki core itself (e.g., Skin::appendSpecialPagesLinkIfAbsent)
@@ -465,10 +468,14 @@ $wgHooks['ResourceLoaderRegisterModules'][] = function( $resourceLoader ) {
 	error_log( '[ResourceLoader] Total modules registered: ' . $moduleCount );
 	
 	// Track when modules are registered
-	register_shutdown_function( function() use ( $startTime ) {
+	register_shutdown_function( function() use ( $startTime, $moduleCount ) {
 		$endTime = microtime( true );
 		$duration = $endTime - $startTime;
-		error_log( '[ResourceLoader] Module registration completed in: ' . round( $duration, 3 ) . ' seconds' );
+		if ( $duration > 1.0 ) {
+			error_log( '[ResourceLoader] SLOW: Module registration completed in: ' . round( $duration, 3 ) . ' seconds (modules: ' . $moduleCount . ')' );
+		} else {
+			error_log( '[ResourceLoader] Module registration completed in: ' . round( $duration, 3 ) . ' seconds' );
+		}
 	} );
 };
 
