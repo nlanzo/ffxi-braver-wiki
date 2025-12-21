@@ -350,6 +350,25 @@ $wgShowDBErrorBacktrace = true;
 # Log queries that take longer than 1 second
 $wgSlowDBThreshold = 1.0;
 
+# Verify Redis/MainStash is actually being used
+# Log when services are initialized to confirm Redis connectivity
+$wgHooks['MediaWikiServices'][] = function( $services ) {
+	try {
+		$mainStash = $services->getMainObjectStash();
+		$stashClass = get_class( $mainStash );
+		error_log( '[ResourceLoader] MainStash class: ' . $stashClass );
+		
+		// Check if Redis is actually being used or if it fell back to database
+		if ( strpos( $stashClass, 'Redis' ) === false && strpos( $stashClass, 'Sql' ) !== false ) {
+			error_log( '[ResourceLoader] WARNING: MainStash is using database instead of Redis! This will be slow.' );
+		} elseif ( strpos( $stashClass, 'Redis' ) !== false ) {
+			error_log( '[ResourceLoader] MainStash is using Redis - good!' );
+		}
+	} catch ( Exception $e ) {
+		error_log( '[ResourceLoader] ERROR checking MainStash: ' . $e->getMessage() );
+	}
+};
+
 # Suppress deprecation warnings from MediaWiki core
 # These warnings come from MediaWiki core itself (e.g., Skin::appendSpecialPagesLinkIfAbsent)
 # and cannot be fixed in user code. Setting limit to current version suppresses them.
