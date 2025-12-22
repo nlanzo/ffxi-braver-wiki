@@ -50,6 +50,8 @@ RUN sed -i 's/ENGINE = MyISAM/ENGINE = InnoDB/g' /var/www/html/sql/mysql/tables-
 # We install this in the builder stage so it's included in the COPY later
 RUN cd extensions/ && \
     git clone --depth 1 https://github.com/edwardspec/mediawiki-aws-s3.git AWS && \
+    # StopForumSpam extension - blocks known spammer IPs from the StopForumSpam database
+    git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-StopForumSpam.git StopForumSpam && \
     # TableTools and VueJsPlus removed due to performance issues
     # git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-TableTools.git TableTools && \
     # git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-VueJsPlus.git VueJsPlus && \

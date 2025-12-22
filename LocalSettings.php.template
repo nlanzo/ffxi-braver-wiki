@@ -473,6 +473,60 @@ wfLoadExtension( 'VisualEditor' );
 # wfLoadExtension( 'VueJsPlus' );
 # wfLoadExtension( 'TableTools' );
 
+# ============================================================================
+# Spam Protection Configuration
+# See: https://www.mediawiki.org/wiki/Manual:Combating_spam
+# ============================================================================
+
+# CAPTCHA Configuration (commented out for now, uncomment to enable)
+# Enable ConfirmEdit extension with QuestyCaptcha
+# QuestyCaptcha is the most robust CAPTCHA option - uses custom questions
+# tailored to your wiki's audience. Update questions regularly for best results.
+# wfLoadExtension( 'ConfirmEdit' );
+# wfLoadExtension( 'ConfirmEdit', 'QuestyCaptcha' );
+
+# Configure QuestyCaptcha questions
+# These questions should be tailored to your wiki's topic (FFXI Braver Wiki)
+# Format: ['question' => 'answer', ...]
+# You can add more questions via MediaWiki:QuestyCaptcha-questions page
+# $wgCaptchaQuestions = [
+#	'What is the name of the MMORPG this wiki is about?' => 'Final Fantasy XI',
+#	'What is the abbreviation for Final Fantasy XI?' => 'FFXI',
+#	'What does "Braver" refer to in this wiki?' => 'Braver',
+# ];
+
+# Enable CAPTCHA on:
+# - Edits adding external links (most common spam vector)
+# - User registration (prevents automated account creation)
+# $wgCaptchaTriggers['edit'] = false; # Don't require CAPTCHA for all edits
+# $wgCaptchaTriggers['addurl'] = true; # Require CAPTCHA when adding external links
+# $wgCaptchaTriggers['createaccount'] = true; # Require CAPTCHA for registration
+# $wgCaptchaTriggers['badlogin'] = true; # Require CAPTCHA after failed login attempts
+
+# Enable SpamBlacklist extension
+# Blocks edits containing URLs from known spam domains
+# Uses Wikimedia's spam blacklist by default, plus local MediaWiki:Spam-blacklist
+wfLoadExtension( 'SpamBlacklist' );
+
+# Enable StopForumSpam extension
+# Blocks edits and registrations from IPs in the StopForumSpam database
+# This is one of the quickest solutions to drastically reduce spam
+# The extension blocks by default on edits, account creation, and email sending
+wfLoadExtension( 'StopForumSpam' );
+
+# Enable DNS blacklist checking
+# Blocks edits from known open proxies, Tor exit nodes, and VPNs
+# This helps prevent spammers from using anonymized connections
+# Note: DNS blacklist checking is resource-intensive, so use sparingly
+# Format: URLs should end with a dot (.) to avoid domain search suffixes
+$wgEnableDnsBlacklist = true;
+$wgDnsBlacklistUrls = [
+	# Block open proxies (common spammer tool)
+	'http.dnsbl.sorbs.net.',
+	# Block Tor exit nodes (often used by spammers)
+	'exitnodes.tor.dnsbl.sectoor.de.',
+];
+
 # ExternalStorage Configuration (Optional)
 # ExternalStorage stores old revision text externally to reduce database size
 # It's built into MediaWiki core - no extension installation needed
