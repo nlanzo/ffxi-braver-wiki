@@ -473,6 +473,11 @@ wfLoadExtension( 'VisualEditor' );
 # wfLoadExtension( 'VueJsPlus' );
 # wfLoadExtension( 'TableTools' );
 
+# Enable Spoilers extension
+# Allows hiding text using {{#spoiler}} parser function
+# See: https://www.mediawiki.org/wiki/Extension:Spoilers
+wfLoadExtension( 'Spoilers' );
+
 # ============================================================================
 # Spam Protection Configuration
 # See: https://www.mediawiki.org/wiki/Manual:Combating_spam
