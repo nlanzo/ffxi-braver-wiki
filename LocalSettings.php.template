@@ -512,7 +512,8 @@ wfLoadExtension( 'SpamBlacklist' );
 # Blocks edits and registrations from IPs in the StopForumSpam database
 # This is one of the quickest solutions to drastically reduce spam
 # The extension blocks by default on edits, account creation, and email sending
-wfLoadExtension( 'StopForumSpam' );
+# DISABLED: Requires MediaWiki >= 1.46, but current version is 1.44.2
+# wfLoadExtension( 'StopForumSpam' );
 
 # Enable DNS blacklist checking
 # Blocks edits from known open proxies, Tor exit nodes, and VPNs
