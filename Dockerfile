@@ -142,10 +142,16 @@ RUN apk add --no-cache \
     && docker-php-ext-enable apcu \
     # Install LuaSandbox PHP extension for Scribunto (required for Lua modules)
     # LuaSandbox works on Alpine Linux, unlike luastandalone which needs glibc
-    && pecl install luasandbox \
+    # Note: luasandbox PECL package requires lua5.1-dev (already installed above)
+    && echo "Installing luasandbox via PECL..." \
+    && (pecl install luasandbox && echo "✓ luasandbox installed successfully" || (echo "✗ Standard PECL install failed, trying with version..." && pecl install channel://pecl.php.net/luasandbox-3.0.3)) \
     && docker-php-ext-enable luasandbox \
     && apk del .build-deps \
     && rm -rf /var/cache/apk/*
+
+# Verify LuaSandbox extension is loaded (for debugging - don't fail build)
+RUN echo "Checking for luasandbox extension..." \
+    && php -m | grep -qi luasandbox && echo "✓ luasandbox extension loaded successfully" || echo "✗ WARNING: luasandbox extension not found in PHP modules"
 
 # Install Cloud SQL Proxy for Cloud SQL connections
 RUN wget -q https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.8.0/cloud-sql-proxy.linux.amd64 \

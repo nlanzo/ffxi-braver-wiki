@@ -642,7 +642,16 @@ wfLoadExtension( 'Scribunto' );
 # Use luasandbox engine (PHP extension) instead of luastandalone (external binary)
 # luasandbox works better on Alpine Linux which uses musl libc
 # luastandalone requires glibc compatibility which adds complexity
-$wgScribuntoDefaultEngine = 'luasandbox';
+# Check Special:Version to verify luasandbox extension is loaded
+if ( extension_loaded( 'luasandbox' ) ) {
+	$wgScribuntoDefaultEngine = 'luasandbox';
+	error_log( 'Scribunto: Using luasandbox engine' );
+} else {
+	error_log( 'ERROR: luasandbox extension not loaded! Scribunto will not work. Check Dockerfile build logs.' );
+	# Try autodetect - it will attempt luasandbox first, then fall back to luastandalone
+	# Note: luastandalone won't work on Alpine without glibc compatibility
+	$wgScribuntoDefaultEngine = 'luaautodetect';
+}
 
 # End of configuration
 
