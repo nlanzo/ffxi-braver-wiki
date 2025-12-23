@@ -121,6 +121,7 @@ RUN apk add --no-cache \
     icu-dev \
     oniguruma-dev \
     postgresql-dev \
+    lua5.1-dev \
     autoconf \
     g++ \
     make \
@@ -139,6 +140,10 @@ RUN apk add --no-cache \
     bcmath \
     && pecl install apcu \
     && docker-php-ext-enable apcu \
+    # Install LuaSandbox PHP extension for Scribunto (required for Lua modules)
+    # LuaSandbox works on Alpine Linux, unlike luastandalone which needs glibc
+    && pecl install luasandbox \
+    && docker-php-ext-enable luasandbox \
     && apk del .build-deps \
     && rm -rf /var/cache/apk/*
 

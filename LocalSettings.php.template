@@ -639,7 +639,10 @@ $wgHooks['BeforePageDisplay'][] = function( $out, $skin ) {
 };
 
 wfLoadExtension( 'Scribunto' );
-$wgScribuntoDefaultEngine = 'luastandalone';
+# Use luasandbox engine (PHP extension) instead of luastandalone (external binary)
+# luasandbox works better on Alpine Linux which uses musl libc
+# luastandalone requires glibc compatibility which adds complexity
+$wgScribuntoDefaultEngine = 'luasandbox';
 
 # End of configuration
 
