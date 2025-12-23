@@ -479,6 +479,10 @@ wfLoadExtension( 'VisualEditor' );
 # wfLoadExtension( 'VueJsPlus' );
 # wfLoadExtension( 'TableTools' );
 
+# Enable TemplateData extension
+# Required for {{documentation}} template tag used in templates
+wfLoadExtension( 'TemplateData' );
+
 # Enable Spoilers extension
 # Allows hiding text using {{#spoiler}} parser function
 # See: https://www.mediawiki.org/wiki/Extension:Spoilers
