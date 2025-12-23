@@ -478,6 +478,11 @@ wfLoadExtension( 'VisualEditor' );
 # See: https://www.mediawiki.org/wiki/Extension:Spoilers
 wfLoadExtension( 'Spoilers' );
 
+# Enable TemplateStyles extension
+# Allows loading sanitized CSS stylesheets from templates
+# See: https://www.mediawiki.org/wiki/Extension:TemplateStyles
+wfLoadExtension( 'TemplateStyles' );
+
 # ============================================================================
 # Spam Protection Configuration
 # See: https://www.mediawiki.org/wiki/Manual:Combating_spam
