@@ -463,6 +463,11 @@ $wgDefaultUserOptions['vector-appearance-pinned'] = 0;
 $wgGroupPermissions["*"]["edit"] = false;
 $wgGroupPermissions['emailconfirmed']['edit'] = true;
 
+# Allow changing content models (required for TemplateStyles CSS files)
+# By default, only sysops can change content models
+# Uncomment the line below if you want emailconfirmed users to also change content models
+$wgGroupPermissions['sysop']['editcontentmodel'] = true;
+
 # Hide real name field from registration and user preferences
 # This prevents users from entering their real names
 $wgHiddenPrefs[] = 'realname';

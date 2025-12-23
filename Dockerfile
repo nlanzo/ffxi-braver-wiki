@@ -57,19 +57,23 @@ RUN cd extensions/ && \
     # git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-VueJsPlus.git VueJsPlus && \
     cd ../ && \
     # Create composer.local.json to merge extension dependencies (per Extension:AWS docs)
+    # Include TemplateStyles to ensure css-sanitizer dependency is installed
     echo '{' > composer.local.json && \
     echo '  "extra": {' >> composer.local.json && \
     echo '    "merge-plugin": {' >> composer.local.json && \
     echo '      "include": [' >> composer.local.json && \
-    echo '        "extensions/AWS/composer.json"' >> composer.local.json && \
+    echo '        "extensions/AWS/composer.json",' >> composer.local.json && \
+    echo '        "extensions/TemplateStyles/composer.json"' >> composer.local.json && \
     echo '      ]' >> composer.local.json && \
     echo '    }' >> composer.local.json && \
     echo '  }' >> composer.local.json && \
     echo '}' >> composer.local.json && \
-    # Run composer update to download dependencies (including AWS SDK)
+    # Run composer update to download dependencies (including AWS SDK and css-sanitizer)
     composer update --no-dev --optimize-autoloader --no-interaction && \
     # Debug: Check if extensions exist
-    ls -la extensions/AWS
+    ls -la extensions/AWS && \
+    # Verify TemplateStyles dependency (css-sanitizer) is installed
+    test -d vendor/wikimedia/css-sanitizer || (echo "ERROR: css-sanitizer not installed!" && exit 1)
 
 
 # Download AWS SDK for PHP manually and place it where the AWS extension expects it or in a common vendor dir
