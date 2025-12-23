@@ -461,6 +461,7 @@ $wgDefaultUserOptions['vector-appearance-pinned'] = 0;
 
 # Permissions - restrict edits to logged-in users only
 $wgGroupPermissions["*"]["edit"] = false;
+$wgGroupPermissions['emailconfirmed']['edit'] = true;
 
 # Hide real name field from registration and user preferences
 # This prevents users from entering their real names
