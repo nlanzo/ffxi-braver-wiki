@@ -628,5 +628,8 @@ $wgHooks['BeforePageDisplay'][] = function( $out, $skin ) {
 	} );
 };
 
+wfLoadExtension( 'Scribunto' );
+$wgScribuntoDefaultEngine = 'luastandalone';
+
 # End of configuration
 
