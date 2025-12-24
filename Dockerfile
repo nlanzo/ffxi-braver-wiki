@@ -112,6 +112,7 @@ RUN apk add --no-cache \
     postgresql-libs \
     mysql-client \
     netcat-openbsd \
+    lua5.1 \
     && apk add --no-cache --virtual .build-deps \
     zlib-dev \
     libpng-dev \
@@ -149,9 +150,12 @@ RUN apk add --no-cache \
     && apk del .build-deps \
     && rm -rf /var/cache/apk/*
 
-# Verify LuaSandbox extension is loaded (for debugging - don't fail build)
+# Verify LuaSandbox extension is loaded (fail build if not found)
 RUN echo "Checking for luasandbox extension..." \
-    && php -m | grep -qi luasandbox && echo "✓ luasandbox extension loaded successfully" || echo "✗ WARNING: luasandbox extension not found in PHP modules"
+    && php -m | grep -qi luasandbox && echo "✓ luasandbox extension loaded successfully" || (echo "✗ ERROR: luasandbox extension not found in PHP modules!" && php -m && exit 1) \
+    && echo "Verifying extension files exist..." \
+    && ls -la /usr/local/lib/php/extensions/*/luasandbox.so || echo "WARNING: luasandbox.so not found in extensions directory" \
+    && ls -la /usr/local/etc/php/conf.d/*luasandbox* || echo "WARNING: luasandbox ini file not found"
 
 # Install Cloud SQL Proxy for Cloud SQL connections
 RUN wget -q https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.8.0/cloud-sql-proxy.linux.amd64 \
