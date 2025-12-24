@@ -643,14 +643,25 @@ wfLoadExtension( 'Scribunto' );
 # luasandbox works better on Alpine Linux which uses musl libc
 # luastandalone requires glibc compatibility which adds complexity
 # Check Special:Version to verify luasandbox extension is loaded
-if ( extension_loaded( 'luasandbox' ) ) {
+
+# Force check if luasandbox is loaded and log detailed info
+$luasandboxLoaded = extension_loaded( 'luasandbox' );
+error_log( 'Scribunto: Checking luasandbox extension...' );
+error_log( 'Scribunto: extension_loaded("luasandbox") = ' . ( $luasandboxLoaded ? 'true' : 'false' ) );
+error_log( 'Scribunto: Loaded PHP extensions: ' . implode( ', ', get_loaded_extensions() ) );
+
+if ( $luasandboxLoaded ) {
 	$wgScribuntoDefaultEngine = 'luasandbox';
 	error_log( 'Scribunto: Using luasandbox engine' );
 } else {
-	error_log( 'ERROR: luasandbox extension not loaded! Scribunto will not work. Check Dockerfile build logs.' );
-	# Try autodetect - it will attempt luasandbox first, then fall back to luastandalone
-	# Note: luastandalone won't work on Alpine without glibc compatibility
-	$wgScribuntoDefaultEngine = 'luaautodetect';
+	error_log( 'ERROR: luasandbox extension not loaded! Scribunto will not work properly.' );
+	error_log( 'ERROR: This will cause status 127 errors when trying to use Lua modules.' );
+	error_log( 'ERROR: Check Dockerfile build logs to see why luasandbox installation failed.' );
+	# DO NOT use autodetect - it will fall back to luastandalone which doesn't work on Alpine
+	# Instead, fail explicitly so the user knows luasandbox needs to be fixed
+	# $wgScribuntoDefaultEngine = 'luaautodetect';  # Commented out - will cause errors
+	# Force luasandbox - if it's not available, Scribunto will throw a clear error
+	$wgScribuntoDefaultEngine = 'luasandbox';
 }
 
 # End of configuration
