@@ -1,7 +1,7 @@
 name: Run MediaWiki update.php
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch: # Manual trigger only
   push:
     branches:
       - main
@@ -74,15 +74,23 @@ jobs:
           # Get the latest execution
           LATEST_EXEC=$(gcloud run jobs executions list --job=$JOB_NAME --region=$REGION --limit=1 --format="value(name)" 2>/dev/null | head -1)
           if [ -n "$LATEST_EXEC" ]; then
+            EXEC_ID=$(echo "$LATEST_EXEC" | awk -F'/' '{print $NF}')
             echo "Latest execution: $LATEST_EXEC"
+            echo ""
             echo "=== Execution Details ==="
             gcloud run jobs executions describe "$LATEST_EXEC" --region=$REGION || true
             echo ""
             echo "=== Execution Logs ==="
-            gcloud run jobs executions logs read --job=$JOB_NAME --region=$REGION --limit=200 || \
-            gcloud logging read "resource.type=cloud_run_job AND resource.labels.job_name=$JOB_NAME AND resource.labels.location=$REGION" --limit=200 --format="table(timestamp,textPayload)" || \
-            echo "Could not retrieve logs. Check the Cloud Console for details."
+            gcloud logging read "resource.type=cloud_run_job AND resource.labels.job_name=$JOB_NAME AND resource.labels.location=$REGION AND resource.labels.execution_name=$EXEC_ID" \
+              --limit=200 \
+              --format="table(timestamp,textPayload)" \
+              --project=${{ secrets.GCP_PROJECT_ID }} || \
+            gcloud logging read "resource.type=cloud_run_job AND resource.labels.job_name=$JOB_NAME AND resource.labels.location=$REGION" \
+              --limit=200 \
+              --format="table(timestamp,textPayload)" \
+              --project=${{ secrets.GCP_PROJECT_ID }} || \
+            echo "Note: Logs may take a few moments to appear. View them in Cloud Console:"
+            echo "https://console.cloud.google.com/run/jobs/executions/details/$REGION/$EXEC_ID?project=${{ secrets.GCP_PROJECT_ID }}"
           else
             echo "No executions found yet."
           fi
-

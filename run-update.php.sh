@@ -70,25 +70,43 @@ fi
 
 echo ""
 echo "Fetching logs from the most recent execution..."
-if [ -n "$EXECUTION_NAME" ]; then
-    echo "Execution: $EXECUTION_NAME"
-    gcloud run jobs executions logs read --job=$JOB_NAME --region=$REGION --limit=100
+# Get the latest execution name
+LATEST_EXEC=$(gcloud run jobs executions list --job=$JOB_NAME --region=$REGION --limit=1 --format="value(name)" 2>/dev/null | head -1)
+
+if [ -n "$LATEST_EXEC" ]; then
+    echo "Latest execution: $LATEST_EXEC"
+    echo ""
+    echo "=== Execution Details ==="
+    gcloud run jobs executions describe "$LATEST_EXEC" --region=$REGION 2>/dev/null || true
+    echo ""
+    echo "=== Execution Logs ==="
+    # Use Cloud Logging to get logs for the execution
+    EXEC_ID=$(echo "$LATEST_EXEC" | awk -F'/' '{print $NF}')
+    gcloud logging read "resource.type=cloud_run_job AND resource.labels.job_name=$JOB_NAME AND resource.labels.location=$REGION AND resource.labels.execution_name=$EXEC_ID" \
+        --limit=200 \
+        --format="table(timestamp,textPayload)" \
+        --project=$PROJECT_ID 2>/dev/null || \
+    gcloud logging read "resource.type=cloud_run_job AND resource.labels.job_name=$JOB_NAME AND resource.labels.location=$REGION" \
+        --limit=200 \
+        --format="table(timestamp,textPayload)" \
+        --project=$PROJECT_ID 2>/dev/null || \
+    echo "Note: Logs may take a few moments to appear. View them in Cloud Console:"
+    echo "https://console.cloud.google.com/run/jobs/executions/details/$REGION/$EXEC_ID?project=$PROJECT_ID"
 else
-    echo "Getting latest execution logs..."
-    gcloud run jobs executions list --job=$JOB_NAME --region=$REGION --limit=1 --format="value(name)" | while read exec_name; do
-        if [ -n "$exec_name" ]; then
-            echo "Execution: $exec_name"
-            gcloud logging read "resource.type=cloud_run_job AND resource.labels.job_name=$JOB_NAME AND resource.labels.location=$REGION" --limit=100 --format="table(timestamp,textPayload)" || \
-            gcloud run jobs executions logs read --job=$JOB_NAME --region=$REGION --limit=100
-        fi
-    done
+    echo "Could not find execution. View logs in Cloud Console:"
+    echo "https://console.cloud.google.com/run/jobs/details/$REGION/$JOB_NAME?project=$PROJECT_ID"
 fi
 
 if [ $EXIT_CODE -ne 0 ]; then
     echo ""
     echo "To view detailed execution information, run:"
-    if [ -n "$EXECUTION_NAME" ]; then
-        echo "gcloud run jobs executions describe $EXECUTION_NAME --region=$REGION"
+    LATEST_EXEC=$(gcloud run jobs executions list --job=$JOB_NAME --region=$REGION --limit=1 --format="value(name)" 2>/dev/null | head -1)
+    if [ -n "$LATEST_EXEC" ]; then
+        EXEC_ID=$(echo "$LATEST_EXEC" | awk -F'/' '{print $NF}')
+        echo "gcloud run jobs executions describe $LATEST_EXEC --region=$REGION"
+        echo ""
+        echo "Or view in Cloud Console:"
+        echo "https://console.cloud.google.com/run/jobs/executions/details/$REGION/$EXEC_ID?project=$PROJECT_ID"
     else
         echo "gcloud run jobs executions list --job=$JOB_NAME --region=$REGION --limit=1"
         echo "Then: gcloud run jobs executions describe <EXECUTION_NAME> --region=$REGION"
