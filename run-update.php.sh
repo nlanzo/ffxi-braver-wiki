@@ -29,11 +29,11 @@ gcloud run jobs create $JOB_NAME \
     --image=$IMAGE_NAME:latest \
     --region=$REGION \
     --set-env-vars="DB_TYPE=mysql,DB_NAME=${DB_NAME:-mediawiki},DB_USER=${DB_USER:-mediawiki},DB_PASSWORD=${DB_PASSWORD},CLOUD_SQL_CONNECTION_NAME=$CLOUD_SQL_CONNECTION_NAME,GCS_BUCKET_NAME=${GCS_BUCKET_NAME},GCS_ACCESS_KEY=${GCS_ACCESS_KEY},GCS_SECRET_KEY=${GCS_SECRET_KEY},WIKI_SITENAME=${WIKI_SITENAME},WIKI_SERVER=${WIKI_SERVER},WIKI_SECRET_KEY=${WIKI_SECRET_KEY},WIKI_UPGRADE_KEY=${WIKI_UPGRADE_KEY},SMTP_HOST=${SMTP_HOST},SMTP_PORT=${SMTP_PORT},SMTP_USERNAME=${SMTP_USERNAME},SMTP_PASSWORD=${SMTP_PASSWORD},WIKI_EMERGENCY_CONTACT=${WIKI_EMERGENCY_CONTACT},WIKI_PASSWORD_SENDER=${WIKI_PASSWORD_SENDER},WIKI_LOGO_URL=${WIKI_LOGO_URL},WIKI_FAVICON_URL=${WIKI_FAVICON_URL}" \
-    --add-cloudsql-instances=$CLOUD_SQL_CONNECTION_NAME \
+    --set-cloudsql-instances=$CLOUD_SQL_CONNECTION_NAME \
     --service-account=${GCP_SERVICE_ACCOUNT} \
     --memory=2Gi \
     --cpu=2 \
-    --timeout=600 \
+    --task-timeout=600 \
     --max-retries=1 \
     --command="/bin/sh" \
     --args="-c,php /var/www/html/maintenance/update.php --quick" \
@@ -43,11 +43,11 @@ gcloud run jobs create $JOB_NAME \
         --image=$IMAGE_NAME:latest \
         --region=$REGION \
         --set-env-vars="DB_TYPE=mysql,DB_NAME=${DB_NAME:-mediawiki},DB_USER=${DB_USER:-mediawiki},DB_PASSWORD=${DB_PASSWORD},CLOUD_SQL_CONNECTION_NAME=$CLOUD_SQL_CONNECTION_NAME,GCS_BUCKET_NAME=${GCS_BUCKET_NAME},GCS_ACCESS_KEY=${GCS_ACCESS_KEY},GCS_SECRET_KEY=${GCS_SECRET_KEY},WIKI_SITENAME=${WIKI_SITENAME},WIKI_SERVER=${WIKI_SERVER},WIKI_SECRET_KEY=${WIKI_SECRET_KEY},WIKI_UPGRADE_KEY=${WIKI_UPGRADE_KEY},SMTP_HOST=${SMTP_HOST},SMTP_PORT=${SMTP_PORT},SMTP_USERNAME=${SMTP_USERNAME},SMTP_PASSWORD=${SMTP_PASSWORD},WIKI_EMERGENCY_CONTACT=${WIKI_EMERGENCY_CONTACT},WIKI_PASSWORD_SENDER=${WIKI_PASSWORD_SENDER},WIKI_LOGO_URL=${WIKI_LOGO_URL},WIKI_FAVICON_URL=${WIKI_FAVICON_URL}" \
-        --add-cloudsql-instances=$CLOUD_SQL_CONNECTION_NAME \
+        --set-cloudsql-instances=$CLOUD_SQL_CONNECTION_NAME \
         --service-account=${GCP_SERVICE_ACCOUNT} \
         --memory=2Gi \
         --cpu=2 \
-        --timeout=600 \
+        --task-timeout=600 \
         --max-retries=1 \
         --command="/bin/sh" \
         --args="-c,php /var/www/html/maintenance/update.php --quick"
