@@ -493,6 +493,11 @@ wfLoadExtension( 'Spoilers' );
 # See: https://www.mediawiki.org/wiki/Extension:TemplateStyles
 wfLoadExtension( 'TemplateStyles' );
 
+# Enable Cargo extension
+# Allows storing and querying structured data in wiki pages
+# See: https://www.mediawiki.org/wiki/Extension:Cargo
+wfLoadExtension( 'Cargo' );
+
 # ============================================================================
 # Spam Protection Configuration
 # See: https://www.mediawiki.org/wiki/Manual:Combating_spam
