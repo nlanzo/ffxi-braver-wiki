@@ -1,0 +1,75 @@
+name: Run MediaWiki update.php
+
+on:
+  workflow_dispatch:  # Manual trigger only
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "mediawiki-1.44.2/extensions/**"
+      - "LocalSettings.php.template"
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  SERVICE_NAME: ffxi-braver-wiki
+  REGION: us-central1
+  IMAGE_NAME: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/ffxi-braver-wiki/ffxi-braver-wiki
+  JOB_NAME: mediawiki-update
+
+jobs:
+  run-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Set environment variables from secrets
+        run: |
+          echo "GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+          echo "CLOUD_SQL_CONNECTION_NAME=${{ secrets.CLOUD_SQL_CONNECTION_NAME }}" >> $GITHUB_ENV
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> $GITHUB_ENV
+          echo "DB_USER=${{ secrets.DB_USER }}" >> $GITHUB_ENV
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> $GITHUB_ENV
+          echo "GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}" >> $GITHUB_ENV
+          echo "GCS_ACCESS_KEY=${{ secrets.GCS_ACCESS_KEY }}" >> $GITHUB_ENV
+          echo "GCS_SECRET_KEY=${{ secrets.GCS_SECRET_KEY }}" >> $GITHUB_ENV
+          echo "WIKI_SITENAME=${{ secrets.WIKI_SITENAME }}" >> $GITHUB_ENV
+          echo "WIKI_SERVER=${{ secrets.WIKI_SERVER }}" >> $GITHUB_ENV
+          echo "WIKI_SECRET_KEY=${{ secrets.WIKI_SECRET_KEY }}" >> $GITHUB_ENV
+          echo "WIKI_UPGRADE_KEY=${{ secrets.WIKI_UPGRADE_KEY }}" >> $GITHUB_ENV
+          echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> $GITHUB_ENV
+          echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> $GITHUB_ENV
+          echo "SMTP_USERNAME=${{ secrets.SMTP_USERNAME }}" >> $GITHUB_ENV
+          echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" >> $GITHUB_ENV
+          echo "WIKI_EMERGENCY_CONTACT=${{ secrets.WIKI_EMERGENCY_CONTACT }}" >> $GITHUB_ENV
+          echo "WIKI_PASSWORD_SENDER=${{ secrets.WIKI_PASSWORD_SENDER }}" >> $GITHUB_ENV
+          echo "WIKI_LOGO_URL=${{ secrets.WIKI_LOGO_URL }}" >> $GITHUB_ENV
+          echo "WIKI_FAVICON_URL=${{ secrets.WIKI_FAVICON_URL }}" >> $GITHUB_ENV
+          echo "GCP_SERVICE_ACCOUNT=${{ secrets.GCP_SERVICE_ACCOUNT }}" >> $GITHUB_ENV
+
+      - name: Run update.php script
+        run: |
+          chmod +x run-update.php.sh
+          ./run-update.php.sh
+
+      - name: View job logs
+        if: always()
+        run: |
+          echo "Viewing logs from the Cloud Run Job execution..."
+          gcloud run jobs executions logs read --job=$JOB_NAME --region=$REGION --limit=50 || echo "No logs available yet"
+

@@ -92,3 +92,4 @@ SAFE_BROWSING.md
 TEMPLATE_SPOILER_SETUP.md
 check-php-errors.sh
 check-luasandbox.sh
+RUN_UPDATE_PHP.md
