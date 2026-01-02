@@ -71,5 +71,18 @@ jobs:
         if: always()
         run: |
           echo "Viewing logs from the Cloud Run Job execution..."
-          gcloud run jobs executions logs read --job=$JOB_NAME --region=$REGION --limit=50 || echo "No logs available yet"
+          # Get the latest execution
+          LATEST_EXEC=$(gcloud run jobs executions list --job=$JOB_NAME --region=$REGION --limit=1 --format="value(name)" 2>/dev/null | head -1)
+          if [ -n "$LATEST_EXEC" ]; then
+            echo "Latest execution: $LATEST_EXEC"
+            echo "=== Execution Details ==="
+            gcloud run jobs executions describe "$LATEST_EXEC" --region=$REGION || true
+            echo ""
+            echo "=== Execution Logs ==="
+            gcloud run jobs executions logs read --job=$JOB_NAME --region=$REGION --limit=200 || \
+            gcloud logging read "resource.type=cloud_run_job AND resource.labels.job_name=$JOB_NAME AND resource.labels.location=$REGION" --limit=200 --format="table(timestamp,textPayload)" || \
+            echo "Could not retrieve logs. Check the Cloud Console for details."
+          else
+            echo "No executions found yet."
+          fi
 

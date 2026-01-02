@@ -36,7 +36,7 @@ gcloud run jobs create $JOB_NAME \
     --task-timeout=600 \
     --max-retries=1 \
     --command="/bin/sh" \
-    --args="-c,php /var/www/html/maintenance/update.php --quick" \
+    --args="-c,set -e; cd /var/www/html; if [ ! -f LocalSettings.php ]; then cp LocalSettings.php.template LocalSettings.php; fi; /usr/local/bin/php maintenance/update.php --quick" \
     --wait || {
     echo "Job may already exist. Updating instead..."
     gcloud run jobs update $JOB_NAME \
@@ -50,14 +50,49 @@ gcloud run jobs create $JOB_NAME \
         --task-timeout=600 \
         --max-retries=1 \
         --command="/bin/sh" \
-        --args="-c,php /var/www/html/maintenance/update.php --quick"
+        --args="-c,set -e; cd /var/www/html; if [ ! -f LocalSettings.php ]; then cp LocalSettings.php.template LocalSettings.php; fi; /usr/local/bin/php maintenance/update.php --quick"
 }
 
 echo ""
 echo "Executing Cloud Run Job..."
-gcloud run jobs execute $JOB_NAME --region=$REGION --wait
+EXECUTION_OUTPUT=$(gcloud run jobs execute $JOB_NAME --region=$REGION --wait 2>&1)
+EXIT_CODE=$?
+
+# Extract execution name from output if available
+EXECUTION_NAME=$(echo "$EXECUTION_OUTPUT" | grep -oP 'executions/\K[^\s]+' | head -1 || echo "")
 
 echo ""
-echo "Job completed! View logs with:"
-echo "gcloud run jobs executions logs read --job=$JOB_NAME --region=$REGION --limit=50"
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "✓ Job completed successfully!"
+else
+    echo "✗ Job failed with exit code $EXIT_CODE"
+fi
+
+echo ""
+echo "Fetching logs from the most recent execution..."
+if [ -n "$EXECUTION_NAME" ]; then
+    echo "Execution: $EXECUTION_NAME"
+    gcloud run jobs executions logs read --job=$JOB_NAME --region=$REGION --limit=100
+else
+    echo "Getting latest execution logs..."
+    gcloud run jobs executions list --job=$JOB_NAME --region=$REGION --limit=1 --format="value(name)" | while read exec_name; do
+        if [ -n "$exec_name" ]; then
+            echo "Execution: $exec_name"
+            gcloud logging read "resource.type=cloud_run_job AND resource.labels.job_name=$JOB_NAME AND resource.labels.location=$REGION" --limit=100 --format="table(timestamp,textPayload)" || \
+            gcloud run jobs executions logs read --job=$JOB_NAME --region=$REGION --limit=100
+        fi
+    done
+fi
+
+if [ $EXIT_CODE -ne 0 ]; then
+    echo ""
+    echo "To view detailed execution information, run:"
+    if [ -n "$EXECUTION_NAME" ]; then
+        echo "gcloud run jobs executions describe $EXECUTION_NAME --region=$REGION"
+    else
+        echo "gcloud run jobs executions list --job=$JOB_NAME --region=$REGION --limit=1"
+        echo "Then: gcloud run jobs executions describe <EXECUTION_NAME> --region=$REGION"
+    fi
+    exit $EXIT_CODE
+fi
 
