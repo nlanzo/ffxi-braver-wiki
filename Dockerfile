@@ -36,7 +36,9 @@ WORKDIR /var/www/html
 # Copy MediaWiki files
 COPY mediawiki-1.44.2/ /var/www/html/
 
-# Copy composer.json if it exists (it might not be in the tarball, but we will init it)
+# Merge AWS extension dependencies (see Extension:AWS composer docs)
+COPY composer.local.json /var/www/html/composer.local.json
+
 # Initialize composer if not present
 RUN if [ ! -f composer.json ]; then composer init --name="mediawiki/core" --type=project --no-interaction; fi
 
@@ -46,34 +48,19 @@ RUN sed -i 's/ENGINE = MyISAM/ENGINE = InnoDB/g' /var/www/html/sql/mysql/tables-
     && sed -i 's/ENGINE=MyISAM/ENGINE=InnoDB/g' /var/www/html/sql/mysql/tables-generated.sql \
     && sed -i 's/ENGINE=MyISAM/ENGINE=InnoDB/g' /var/www/html/sql/mysql/patch-searchindex.sql || true
 
-# Install MediaWiki extensions like ExternalStorage with GCS backend for Cloud Storage integration
-# We install this in the builder stage so it's included in the COPY later
-RUN cd extensions/ && \
-    git clone --depth 1 https://github.com/edwardspec/mediawiki-aws-s3.git AWS && \
-    # StopForumSpam extension - blocks known spammer IPs from the StopForumSpam database
+# Install extensions and AWS SDK (avoid full "composer update" — no root lock file)
+RUN set -ex && \
+    cd extensions && \
+    git clone --depth 1 --branch v0.14.0 https://github.com/edwardspec/mediawiki-aws-s3.git AWS && \
     git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-StopForumSpam.git StopForumSpam && \
-    # TableTools and VueJsPlus removed due to performance issues
-    # git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-TableTools.git TableTools && \
-    # git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-VueJsPlus.git VueJsPlus && \
-    cd ../ && \
-    # Create composer.local.json to merge extension dependencies (per Extension:AWS docs)
-    # Include TemplateStyles to ensure css-sanitizer dependency is installed
-    echo '{' > composer.local.json && \
-    echo '  "extra": {' >> composer.local.json && \
-    echo '    "merge-plugin": {' >> composer.local.json && \
-    echo '      "include": [' >> composer.local.json && \
-    echo '        "extensions/AWS/composer.json",' >> composer.local.json && \
-    echo '        "extensions/TemplateStyles/composer.json"' >> composer.local.json && \
-    echo '      ]' >> composer.local.json && \
-    echo '    }' >> composer.local.json && \
-    echo '  }' >> composer.local.json && \
-    echo '}' >> composer.local.json && \
-    # Run composer update to download dependencies (including AWS SDK and css-sanitizer)
-    composer update --no-dev --optimize-autoloader --no-interaction && \
-    # Debug: Check if extensions exist
-    ls -la extensions/AWS && \
-    # Verify TemplateStyles dependency (css-sanitizer) is installed
-    test -d vendor/wikimedia/css-sanitizer || (echo "ERROR: css-sanitizer not installed!" && exit 1)
+    cd .. && \
+    COMPOSER_MEMORY_LIMIT=-1 composer require aws/aws-sdk-php:^3.67 \
+      --no-interaction \
+      --no-dev \
+      --optimize-autoloader \
+      --update-with-dependencies && \
+    test -d extensions/AWS && \
+    test -d vendor/aws/aws-sdk-php
 
 
 # Download AWS SDK for PHP manually and place it where the AWS extension expects it or in a common vendor dir
@@ -90,11 +77,6 @@ RUN cd extensions/ && \
 # Note: ExternalStorage extension should be installed manually after deployment
 # Cloud Storage integration can be configured via MediaWiki extensions
 # See documentation for installing ExternalStorage or other GCS-compatible extensions
-
-# Install PHP dependencies if composer.json exists
-RUN if [ -f composer.json ]; then \
-    composer install --no-dev --optimize-autoloader --no-interaction; \
-    fi
 
 # Production stage
 FROM php:8.2-fpm-alpine
