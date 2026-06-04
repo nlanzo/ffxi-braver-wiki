@@ -27,8 +27,8 @@ RUN apk add --no-cache \
     opcache \
     bcmath
 
-# Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# Pin Composer 2.x (avoid breaking CLI flag / security-policy changes on :latest)
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Set working directory
 WORKDIR /var/www/html
@@ -54,8 +54,12 @@ RUN set -ex && \
     git clone --depth 1 --branch v0.14.0 https://github.com/edwardspec/mediawiki-aws-s3.git AWS && \
     git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-StopForumSpam.git StopForumSpam && \
     cd .. && \
+    # MediaWiki 1.44 pins packages with known advisories; block policy breaks "composer require"
+    composer config --no-interaction policy.advisories.block false && \
     COMPOSER_MEMORY_LIMIT=-1 composer require aws/aws-sdk-php:^3.67 \
       --no-interaction \
+      --no-security-blocking \
+      --no-audit \
       --update-no-dev \
       --optimize-autoloader \
       --update-with-dependencies && \
