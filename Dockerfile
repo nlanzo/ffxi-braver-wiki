@@ -56,7 +56,7 @@ RUN set -ex && \
     cd .. && \
     COMPOSER_MEMORY_LIMIT=-1 composer require aws/aws-sdk-php:^3.67 \
       --no-interaction \
-      --no-dev \
+      --update-no-dev \
       --optimize-autoloader \
       --update-with-dependencies && \
     test -d extensions/AWS && \
