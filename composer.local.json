@@ -1,4 +1,8 @@
 {
+	"require": {
+		"aws/aws-sdk-php": "^3.67",
+		"wikimedia/css-sanitizer": "^5.5.0"
+	},
 	"extra": {
 		"merge-plugin": {
 			"include": [

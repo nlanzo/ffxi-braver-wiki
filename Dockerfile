@@ -48,23 +48,23 @@ RUN sed -i 's/ENGINE = MyISAM/ENGINE = InnoDB/g' /var/www/html/sql/mysql/tables-
     && sed -i 's/ENGINE=MyISAM/ENGINE=InnoDB/g' /var/www/html/sql/mysql/tables-generated.sql \
     && sed -i 's/ENGINE=MyISAM/ENGINE=InnoDB/g' /var/www/html/sql/mysql/patch-searchindex.sql || true
 
-# Install extensions and AWS SDK (avoid full "composer update" — no root lock file)
+# Install extensions and Composer deps (AWS SDK, TemplateStyles/css-sanitizer, etc.)
 RUN set -ex && \
     cd extensions && \
     git clone --depth 1 --branch v0.14.0 https://github.com/edwardspec/mediawiki-aws-s3.git AWS && \
     git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-StopForumSpam.git StopForumSpam && \
     cd .. && \
-    # MediaWiki 1.44 pins packages with known advisories; block policy breaks "composer require"
+    # MediaWiki 1.44 pins packages with known advisories; block policy breaks "composer update"
     composer config --no-interaction policy.advisories.block false && \
-    COMPOSER_MEMORY_LIMIT=-1 composer require aws/aws-sdk-php:^3.67 \
+    COMPOSER_MEMORY_LIMIT=-1 composer update --no-dev \
       --no-interaction \
       --no-security-blocking \
       --no-audit \
-      --update-no-dev \
-      --optimize-autoloader \
-      --update-with-dependencies && \
+      --optimize-autoloader && \
     test -d extensions/AWS && \
-    test -d vendor/aws/aws-sdk-php
+    test -d vendor/aws/aws-sdk-php && \
+    test -d vendor/wikimedia/css-sanitizer && \
+    php -r 'require "vendor/autoload.php"; exit(class_exists("Wikimedia\\CSS\\Parser\\Parser") ? 0 : 1);'
 
 
 # Download AWS SDK for PHP manually and place it where the AWS extension expects it or in a common vendor dir
