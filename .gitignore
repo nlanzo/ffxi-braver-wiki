@@ -73,14 +73,7 @@ build/
 *.egg-info/
 
 # extra setup and data files
-DEPLOYMENT.md
-QUICK_START.md
-SETUP_SUMMARY.md
-DOMAIN_AUTH_SETUP.md
-EMAIL_SETUP_QUICKSTART.md
-GITHUB_SECRETS_SETUP.md
-SMTP_SETUP.md
-GOOGLE_CLOUD_DNS_SETUP.md
+handoff/
 FFXI Braver Info*
 nm_table_generated.txt
 *generated.txt
@@ -92,6 +85,4 @@ SAFE_BROWSING.md
 TEMPLATE_SPOILER_SETUP.md
 check-php-errors.sh
 check-luasandbox.sh
-RUN_UPDATE_PHP.md
 CACHING_EXPLANATION.md
-BREVO_SETUP.md

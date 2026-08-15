@@ -240,6 +240,19 @@ RUN { \
     echo '    location ~ ^/(health|favicon.ico) {'; \
     echo '      access_log off;'; \
     echo '    }'; \
+    echo '    # MediaWiki REST API (header search autocomplete, VisualEditor, etc.)'; \
+    echo '    # Must be before the pretty-URL catch-all or /rest.php/v1/... is rewritten'; \
+    echo '    # to index.php and returns HTML (404) instead of application/json.'; \
+    echo '    location ^~ /rest.php {'; \
+    echo '      fastcgi_pass 127.0.0.1:9000;'; \
+    echo '      fastcgi_index rest.php;'; \
+    echo '      fastcgi_param SCRIPT_FILENAME $document_root/rest.php;'; \
+    echo '      include fastcgi_params;'; \
+    echo '      fastcgi_connect_timeout 10s;'; \
+    echo '      fastcgi_send_timeout 300s;'; \
+    echo '      fastcgi_read_timeout 300s;'; \
+    echo '      fastcgi_buffering off;'; \
+    echo '    }'; \
     echo '    location / {'; \
     echo '      try_files $uri $uri/ @mediawiki;'; \
     echo '    }'; \

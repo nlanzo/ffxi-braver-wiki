@@ -14,7 +14,7 @@ This repository contains a MediaWiki installation configured to run on Google Cl
 
 - Serverless deployment on Cloud Run
 - Cloud SQL integration (MySQL)
-- Cloud Storage for file uploads (via gcsfuse)
+- Cloud Storage for file uploads (via Extension:AWS + GCS HMAC keys)
 - Automated CI/CD with GitHub Actions
 - Scalable and cost-effective
 
@@ -39,6 +39,10 @@ docker run -p 8080:8080 \
     -e DB_HOST=host.docker.internal \
     mediawiki-local
 ```
+
+## Handoff
+
+Migration checklist and setup guides live in `handoff/` (gitignored). Start with `handoff/HANDOFF.md`.
 
 ## License
 
