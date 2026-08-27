@@ -53,6 +53,8 @@ RUN set -ex && \
     cd extensions && \
     git clone --depth 1 --branch v0.14.0 https://github.com/edwardspec/mediawiki-aws-s3.git AWS && \
     git clone --depth 1 https://github.com/wikimedia/mediawiki-extensions-StopForumSpam.git StopForumSpam && \
+    # CrawlerProtection 1.7.0 (main; repo has no version tags)
+    git clone --depth 1 https://github.com/MyWikis/CrawlerProtection.git CrawlerProtection && \
     cd .. && \
     # MediaWiki 1.44 pins packages with known advisories; block policy breaks "composer update"
     composer config --no-interaction policy.advisories.block false && \
@@ -62,6 +64,7 @@ RUN set -ex && \
       --no-audit \
       --optimize-autoloader && \
     test -d extensions/AWS && \
+    test -d extensions/CrawlerProtection && \
     test -d vendor/aws/aws-sdk-php && \
     test -d vendor/wikimedia/css-sanitizer && \
     php -r 'require "vendor/autoload.php"; exit(class_exists("Wikimedia\\CSS\\Parser\\Parser") ? 0 : 1);'
@@ -186,93 +189,7 @@ RUN rm -f /usr/local/etc/php-fpm.d/www.conf.default /usr/local/etc/php-fpm.d/zz-
     echo 'php_admin_flag[log_errors] = on'; \
     } > /usr/local/etc/php-fpm.d/mediawiki.conf
 
-# Configure Nginx
-RUN { \
-    echo 'user www-data;'; \
-    echo 'worker_processes auto;'; \
-    echo 'error_log /proc/self/fd/2 warn;'; \
-    echo 'pid /var/run/nginx.pid;'; \
-    echo 'events { worker_connections 1024; }'; \
-    echo 'http {'; \
-    echo '  include /etc/nginx/mime.types;'; \
-    echo '  default_type application/octet-stream;'; \
-    echo '  log_format main '"'"'$remote_addr - $remote_user [$time_local] "$request" '"'"' '"'"'$status $body_bytes_sent "$http_referer" '"'"' '"'"'"$http_user_agent" "$http_x_forwarded_for"'"'"';'; \
-    echo '  access_log /proc/self/fd/1 main;'; \
-    echo '  sendfile on;'; \
-    echo '  keepalive_timeout 65;'; \
-    echo '  client_max_body_size 20M;'; \
-    echo '  client_body_temp_path /tmp/nginx_client_body;'; \
-    echo '  proxy_temp_path /tmp/nginx_proxy;'; \
-    echo '  fastcgi_temp_path /tmp/nginx_fastcgi;'; \
-    echo '  uwsgi_temp_path /tmp/nginx_uwsgi;'; \
-    echo '  scgi_temp_path /tmp/nginx_scgi;'; \
-    echo '  server {'; \
-    echo '    listen 8080;'; \
-    echo '    server_name _;'; \
-    echo '    root /var/www/html;'; \
-    echo '    index index.php;'; \
-    echo '    # Security: Prevent PHP execution in uploads directory'; \
-    echo '    location ~ ^/images/.*\.php$ { deny all; }'; \
-    echo '    # Security headers for uploads directory'; \
-    echo '    location /images/ {'; \
-    echo '      add_header X-Content-Type-Options "nosniff" always;'; \
-    echo '    }'; \
-    echo '    # Security headers for all pages'; \
-    echo '    add_header X-Frame-Options "DENY" always;'; \
-    echo '    add_header X-Content-Type-Options "nosniff" always;'; \
-    echo '    add_header X-XSS-Protection "1; mode=block" always;'; \
-    echo '    add_header Referrer-Policy "strict-origin-when-cross-origin" always;'; \
-    echo '    # Health check endpoint for Cloud Run (reduces log noise)'; \
-    echo '    location = /health {'; \
-    echo '      access_log off;'; \
-    echo '      return 200 "OK";'; \
-    echo '      add_header Content-Type text/plain;'; \
-    echo '    }'; \
-    echo '    # Handle robots.txt case-insensitively (fixes 404 warnings)'; \
-    echo '    # MediaWiki generates robots.txt dynamically via Special:Robots'; \
-    echo '    # Case-insensitive match handles Robots.txt, ROBOTS.TXT, etc.'; \
-    echo '    location ~* ^/robots\.txt$ {'; \
-    echo '      access_log off;'; \
-    echo '      rewrite ^(.*)$ /index.php?title=Special:Robots last;'; \
-    echo '    }'; \
- \
-    echo '    # Reduce logging for internal/health check requests'; \
-    echo '    location ~ ^/(health|favicon.ico) {'; \
-    echo '      access_log off;'; \
-    echo '    }'; \
-    echo '    # MediaWiki REST API (header search autocomplete, VisualEditor, etc.)'; \
-    echo '    # Must be before the pretty-URL catch-all or /rest.php/v1/... is rewritten'; \
-    echo '    # to index.php and returns HTML (404) instead of application/json.'; \
-    echo '    location ^~ /rest.php {'; \
-    echo '      fastcgi_pass 127.0.0.1:9000;'; \
-    echo '      fastcgi_index rest.php;'; \
-    echo '      fastcgi_param SCRIPT_FILENAME $document_root/rest.php;'; \
-    echo '      include fastcgi_params;'; \
-    echo '      fastcgi_connect_timeout 10s;'; \
-    echo '      fastcgi_send_timeout 300s;'; \
-    echo '      fastcgi_read_timeout 300s;'; \
-    echo '      fastcgi_buffering off;'; \
-    echo '    }'; \
-    echo '    location / {'; \
-    echo '      try_files $uri $uri/ @mediawiki;'; \
-    echo '    }'; \
-    echo '    location @mediawiki {'; \
-    echo '      rewrite ^/(.*)$ /index.php?title=$1&$args last;'; \
-    echo '    }'; \
-    echo '    location ~ \.php$ {'; \
-    echo '      fastcgi_pass 127.0.0.1:9000;'; \
-    echo '      fastcgi_index index.php;'; \
-    echo '      fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;'; \
-    echo '      include fastcgi_params;'; \
-    echo '      fastcgi_connect_timeout 10s;'; \
-    echo '      fastcgi_send_timeout 300s;'; \
-    echo '      fastcgi_read_timeout 300s;'; \
-    echo '      fastcgi_buffering off;'; \
-    echo '    }'; \
-    echo '    location ~ /\. { deny all; }'; \
-    echo '  }'; \
-    echo '}'; \
-    } > /etc/nginx/nginx.conf
+COPY docker/nginx.conf /etc/nginx/nginx.conf
 
 # Create script to wait for PHP-FPM to be ready before starting nginx
 RUN { \

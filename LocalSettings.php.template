@@ -311,8 +311,6 @@ if (function_exists('apcu_fetch')) {
     
     # Session cache: Use APCu (if users get "session hijacking" errors, change to CACHE_DB)
     $wgSessionCacheType = CACHE_ACCEL;
-    
-    error_log( '[Cache] Using APCu for main cache (per MediaWiki best practices)' );
 } else {
     # Fallback to database if APCu not available
     $wgMainCacheType = CACHE_DB;
@@ -320,7 +318,6 @@ if (function_exists('apcu_fetch')) {
     $wgMessageCacheType = CACHE_DB;
     $wgLanguageConverterCacheType = CACHE_DB;
     $wgSessionCacheType = CACHE_DB;
-    error_log( '[Cache] APCu not available, using database cache' );
 }
 
 # MainStash uses database cache (free but slower)
@@ -328,7 +325,6 @@ if (function_exists('apcu_fetch')) {
 # Database cache is free but causes slower ResourceLoader initialization
 # This is acceptable for small wikis to avoid paying for Redis
 $wgMainStash = CACHE_DB;
-error_log( '[Cache] MainStash using database cache (free, acceptable for small wikis)' );
 
 # Enable sidebar cache (per MediaWiki performance tuning docs)
 # "A small save in DB queries can be obtained by caching the sidebar"
@@ -386,34 +382,23 @@ if (isset($_ENV['SMTP_HOST'])) {
     ];
 }
 
-# Logging
-$wgDebugLogFile = '/dev/stderr';
-# Temporarily enable error display for debugging (disable in production)
-$wgShowExceptionDetails = true;
-$wgShowSQLErrors = true;
-$wgShowDBErrorBacktrace = true;
+# Logging — keep Cloud Logging quiet in production.
+# Set WIKI_DEBUG=1 to dump MediaWiki debug to stderr again.
+$wikiDebug = in_array( strtolower( (string) ( $_ENV['WIKI_DEBUG'] ?? '' ) ), [ '1', 'true', 'yes' ], true );
+if ( $wikiDebug ) {
+	$wgDebugLogFile = '/dev/stderr';
+	$wgShowExceptionDetails = true;
+	$wgShowSQLErrors = true;
+	$wgShowDBErrorBacktrace = true;
+} else {
+	$wgDebugLogFile = '';
+	$wgShowExceptionDetails = false;
+	$wgShowSQLErrors = false;
+	$wgShowDBErrorBacktrace = false;
+}
 # Enable slow query logging to identify database bottlenecks
 # Log queries that take longer than 1 second
 $wgSlowDBThreshold = 1.0;
-
-# Verify MainStash cache backend (for debugging)
-# Log when services are initialized to confirm cache configuration
-$wgHooks['MediaWikiServices'][] = function( $services ) {
-	try {
-		$mainStash = $services->getMainObjectStash();
-		$stashClass = get_class( $mainStash );
-		error_log( '[ResourceLoader] MainStash class: ' . $stashClass );
-		
-		// Log which cache backend is being used
-		if ( strpos( $stashClass, 'Sql' ) !== false ) {
-			error_log( '[ResourceLoader] MainStash using database cache (free, acceptable for small wikis)' );
-		} elseif ( strpos( $stashClass, 'APCu' ) !== false ) {
-			error_log( '[ResourceLoader] MainStash using APCu cache' );
-		}
-	} catch ( Exception $e ) {
-		error_log( '[ResourceLoader] ERROR checking MainStash: ' . $e->getMessage() );
-	}
-};
 
 # Suppress deprecation warnings from MediaWiki core
 # These warnings come from MediaWiki core itself (e.g., Skin::appendSpecialPagesLinkIfAbsent)
@@ -533,6 +518,18 @@ wfLoadExtension( 'Cargo' );
 # Uses Wikimedia's spam blacklist by default, plus local MediaWiki:Spam-blacklist
 wfLoadExtension( 'SpamBlacklist' );
 
+# Block anonymous access to specials/actions abused by AI crawlers
+# (RecentChangesLinked, WhatLinksHere, diffs, history, logs, contributions)
+wfLoadExtension( 'CrawlerProtection' );
+$wgCrawlerProtectedSpecialPages = [
+	'mobilediff',
+	'recentchangeslinked',
+	'whatlinkshere',
+	'log',
+	'contributions',
+];
+$wgCrawlerProtectionRawDenial = true;
+
 # Enable StopForumSpam extension
 # Blocks edits and registrations from IPs in the StopForumSpam database
 # This is one of the quickest solutions to drastically reduce spam
@@ -592,55 +589,6 @@ $wgHooks['BeforePageDisplay'][] = function( $out, $skin ) {
 	$out->addModules( 'jquery.makeCollapsible' );
 	$out->addModuleStyles( 'jquery.makeCollapsible.styles' );
 	
-	// Debug: Log modules to verify they're being added
-	// Check browser console or view page source for RLPAGEMODULES variable
-	// You can also check: window.mw.loader.getModuleNames() in browser console
-};
-
-# ResourceLoader performance debugging
-# Track timing to identify bottlenecks in startup module loading
-$wgHooks['ResourceLoaderGetConfigVars'][] = function( &$vars, $skin, $config ) {
-	// Record start time for ResourceLoader initialization
-	$vars['wgResourceLoaderStartTime'] = microtime( true );
-	// Log to error log for server-side debugging
-	error_log( '[ResourceLoader] Config vars requested at: ' . $vars['wgResourceLoaderStartTime'] );
-};
-
-# Hook into ResourceLoader module registration to track timing
-$wgHooks['ResourceLoaderRegisterModules'][] = function( $resourceLoader ) {
-	$startTime = microtime( true );
-	error_log( '[ResourceLoader] Module registration started at: ' . $startTime );
-	$moduleCount = count( $resourceLoader->getModuleNames() );
-	error_log( '[ResourceLoader] Total modules registered: ' . $moduleCount );
-	
-	// Track when modules are registered
-	register_shutdown_function( function() use ( $startTime, $moduleCount ) {
-		$endTime = microtime( true );
-		$duration = $endTime - $startTime;
-		if ( $duration > 1.0 ) {
-			error_log( '[ResourceLoader] SLOW: Module registration completed in: ' . round( $duration, 3 ) . ' seconds (modules: ' . $moduleCount . ')' );
-		} else {
-			error_log( '[ResourceLoader] Module registration completed in: ' . round( $duration, 3 ) . ' seconds' );
-		}
-	} );
-};
-
-# Track page generation timing to identify ResourceLoader bottlenecks
-$wgHooks['BeforePageDisplay'][] = function( $out, $skin ) {
-	// Track when ResourceLoader client is being built (includes startup module generation)
-	$rlStartTime = microtime( true );
-	error_log( '[ResourceLoader] BeforePageDisplay hook - starting ResourceLoader client build' );
-	
-	// Use a shutdown function to measure total time after everything completes
-	register_shutdown_function( function() use ( $rlStartTime ) {
-		$rlEndTime = microtime( true );
-		$rlDuration = $rlEndTime - $rlStartTime;
-		error_log( '[ResourceLoader] Total page generation time: ' . round( $rlDuration, 3 ) . ' seconds' );
-		
-		// Log memory usage
-		$memoryUsage = memory_get_peak_usage( true );
-		error_log( '[ResourceLoader] Peak memory usage: ' . round( $memoryUsage / 1024 / 1024, 2 ) . ' MB' );
-	} );
 };
 
 wfLoadExtension( 'Scribunto' );
@@ -649,24 +597,10 @@ wfLoadExtension( 'Scribunto' );
 # luastandalone requires glibc compatibility which adds complexity
 # Check Special:Version to verify luasandbox extension is loaded
 
-# Force check if luasandbox is loaded and log detailed info
-$luasandboxLoaded = extension_loaded( 'luasandbox' );
-error_log( 'Scribunto: Checking luasandbox extension...' );
-error_log( 'Scribunto: extension_loaded("luasandbox") = ' . ( $luasandboxLoaded ? 'true' : 'false' ) );
-error_log( 'Scribunto: Loaded PHP extensions: ' . implode( ', ', get_loaded_extensions() ) );
-
-if ( $luasandboxLoaded ) {
-	$wgScribuntoDefaultEngine = 'luasandbox';
-	error_log( 'Scribunto: Using luasandbox engine' );
-} else {
+$wgScribuntoDefaultEngine = 'luasandbox';
+if ( !extension_loaded( 'luasandbox' ) ) {
 	error_log( 'ERROR: luasandbox extension not loaded! Scribunto will not work properly.' );
-	error_log( 'ERROR: This will cause status 127 errors when trying to use Lua modules.' );
 	error_log( 'ERROR: Check Dockerfile build logs to see why luasandbox installation failed.' );
-	# DO NOT use autodetect - it will fall back to luastandalone which doesn't work on Alpine
-	# Instead, fail explicitly so the user knows luasandbox needs to be fixed
-	# $wgScribuntoDefaultEngine = 'luaautodetect';  # Commented out - will cause errors
-	# Force luasandbox - if it's not available, Scribunto will throw a clear error
-	$wgScribuntoDefaultEngine = 'luasandbox';
 }
 
 # End of configuration
